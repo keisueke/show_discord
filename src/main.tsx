@@ -221,6 +221,14 @@ async function initApp() {
       debugLog('Root element found, creating React root...');
       const reactRoot = createRoot(root);
       debugLog('React root created, rendering App component...');
+      
+      // グローバルエラーハンドラーを設定（Reactエラーを捕捉）
+      const originalError = console.error;
+      console.error = (...args: any[]) => {
+        debugLog('CONSOLE ERROR', args);
+        originalError.apply(console, args);
+      };
+      
       reactRoot.render(
         <StrictMode>
           <App />
