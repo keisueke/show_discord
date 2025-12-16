@@ -176,18 +176,36 @@ async function initApp() {
   
   // プロキシ問題を回避するため、一旦 discord: false に設定
   // インターセプターが完全に機能するまで待つ
-  insertCoin({
+  debugLog('Calling insertCoin...', {
+    skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
+    gameId: 'GLWLPW9PB5oKsi0GGQdf',
+    discord: false
+  });
+  
+  const insertCoinPromise = insertCoin({
     skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
     discord: false  // 一旦 false に戻してロビー画面を表示
-  }).then(() => {
+  });
+  
+  debugLog('insertCoin called, waiting for promise...');
+  
+  // タイムアウトを追加して、初期化が完了しない場合を検出
+  const timeoutId = setTimeout(() => {
+    debugLog('PlayroomKit initialization timeout (10s)', { promise: insertCoinPromise });
+  }, 10000);
+  
+  insertCoinPromise.then(() => {
+    clearTimeout(timeoutId);
     debugLog('PlayroomKit initialized successfully');
     // PlayroomKit初期化後にDiscordプロファイルを設定
     setDiscordProfile();
   }).catch((error) => {
+    clearTimeout(timeoutId);
     debugLog('PlayroomKit init failed', { 
       message: error instanceof Error ? error.message : 'Unknown',
-      error: error 
+      error: error,
+      stack: error instanceof Error ? error.stack : undefined
     });
   });
 
