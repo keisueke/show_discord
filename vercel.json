@@ -9,8 +9,8 @@
       "destination": "/api/proxy"
     },
     {
-      "source": "/.proxy/(.*)",
-      "destination": "/api/proxy/$1"
+      "source": "/.proxy/:path*",
+      "destination": "/api/proxy?url=:path*"
     }
   ],
   "headers": [

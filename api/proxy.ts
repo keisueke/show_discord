@@ -87,6 +87,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     decodedUrl = targetUrl;
   }
 
+  // スラッシュ補正: https:/ → https://, http:/ → http://
+  decodedUrl = decodedUrl.replace(/^(https?):\/([^\/])/, '$1://$2');
+
   // http:// または https:// で始まらない場合は https:// を付与
   if (!decodedUrl.startsWith('http://') && !decodedUrl.startsWith('https://')) {
     decodedUrl = 'https://' + decodedUrl;
