@@ -23,6 +23,25 @@ function debugLog(message: string, data?: any) {
   debugDiv.scrollTop = debugDiv.scrollHeight;
 }
 
+// グローバルfetchをインターセプトして、/.proxy/ リクエストを /.proxy?url= 形式に変換
+const originalFetch = window.fetch;
+window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  
+  // /.proxy/https://... 形式を /.proxy?url=... 形式に変換
+  if (url.includes('/.proxy/')) {
+    const proxyMatch = url.match(/\/.proxy\/(https?:\/\/.+)/);
+    if (proxyMatch) {
+      const targetUrl = proxyMatch[1];
+      const baseUrl = url.substring(0, url.indexOf('/.proxy/'));
+      url = `${baseUrl}/.proxy?url=${encodeURIComponent(targetUrl)}`;
+      debugLog('Fetch intercepted', { original: proxyMatch[0].slice(0, 50), converted: url.slice(0, 80) });
+    }
+  }
+  
+  return originalFetch.call(window, url, init);
+};
+
 // Discord SDKの初期化（非同期、エラーが発生しても続行、エラーは静かに処理）
 async function initDiscordSDK(isDiscordActivity: boolean) {
   if (!isDiscordActivity) {
