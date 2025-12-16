@@ -106,7 +106,14 @@ Discord Embedded App SDK は、Discord内で動作する際に `/.proxy/*` 経�
 
 2. **環境変数の設定**:
    - Vercel プロジェクトの **Settings** > **Environment Variables** で以下を設定:
-     - `VITE_DISCORD_CLIENT_ID`: Discord Application ID
+     - `VITE_DISCORD_CLIENT_ID`: Discord Application ID（クライアント側用）
+     - `DISCORD_CLIENT_ID`: Discord Application ID（サーバーレス関数用、`VITE_DISCORD_CLIENT_ID`と同じ値）
+     - `DISCORD_CLIENT_SECRET`: Discord Client Secret（サーバーレス関数用）
+       - Discord Developer Portal → あなたのアプリケーション → OAuth2 タブ
+       - 「Client Secret」をコピーして設定
+       - **重要**: Client Secretは機密情報のため、GitHubにコミットしないでください（クライアント側用）
+     - `DISCORD_CLIENT_ID`: Discord Application ID（サーバーレス関数用、`VITE_DISCORD_CLIENT_ID`と同じ値）
+     - `DISCORD_CLIENT_SECRET`: Discord Client Secret（サーバーレス関数用、OAuth2タブから取得）
 
 3. **デプロイ**:
    - GitHub にプッシュすると自動デプロイされます
