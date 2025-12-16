@@ -443,26 +443,23 @@ function App() {
         {muted ? '🔇' : '🔊'}
       </button>
 
-      {(() => {
-        addDebugLog(`[APP] Checking phase condition - phase: "${phase}", condition result: ${phase === 'LOBBY'}`);
-        if (phase === 'LOBBY') {
-          addDebugLog(`[APP] Phase is LOBBY, rendering Lobby component`);
-          return (
-            <Lobby
-              players={players}
-              myself={myself}
-              adminId={adminId}
-              settings={settings}
-              onStart={startGame}
-              onUpdateSettings={updateSettings}
-              onTransferAdmin={transferAdmin}
-              scores={scores}
-            />
-          );
-        } else {
-          addDebugLog(`[APP] Phase is NOT LOBBY, current phase: "${phase}"`);
-          return null;
-        }
+      {phase === 'LOBBY' ? (() => {
+        addDebugLog(`[APP] Phase is LOBBY, rendering Lobby component`);
+        return (
+          <Lobby
+            players={players}
+            myself={myself}
+            adminId={adminId}
+            settings={settings}
+            onStart={startGame}
+            onUpdateSettings={updateSettings}
+            onTransferAdmin={transferAdmin}
+            scores={scores}
+          />
+        );
+      })() : (() => {
+        addDebugLog(`[APP] Phase is NOT LOBBY, current phase: "${phase}"`);
+        return null;
       })()}
       {phase === 'QUESTION_SELECTION' && (
         <SelectionScreen
