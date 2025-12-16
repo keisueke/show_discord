@@ -520,26 +520,31 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
               transition={{ delay: 1 + (i * 0.2) }}
             >
               <div className="player-info-result">
-                {colorHex && (
-                  <>
-                    {displayColor?.hexString || displayColor?.hex ? (
-                      <img 
-                        src={discordProfile?.photo || profile.photo || ''} 
-                        alt={displayName}
-                        className="player-avatar-result"
-                        onError={(e) => {
-                          // 画像読み込みエラー時は非表示
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : null}
-                    {(!discordProfile?.photo && !profile.photo) && (
-                      <div className="player-avatar-placeholder-result">
-                        {displayName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </>
-                )}
+                {(() => {
+                  const avatarUrl = discordProfile?.photo || profile.photo || null;
+                  return avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={displayName}
+                      className="player-avatar-result"
+                      onError={(e) => {
+                        // 画像読み込みエラー時はプレースホルダーに切り替え
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const placeholder = target.nextElementSibling as HTMLElement;
+                        if (placeholder && placeholder.classList.contains('player-avatar-placeholder-result')) {
+                          placeholder.style.display = 'flex';
+                        }
+                      }}
+                    />
+                  ) : null;
+                })()}
+                <div 
+                  className="player-avatar-placeholder-result"
+                  style={{ display: (discordProfile?.photo || profile.photo) ? 'none' : 'flex' }}
+                >
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
                 <span className="player-name" style={{ color: colorHex }}>
                   {displayName}
                 </span>
