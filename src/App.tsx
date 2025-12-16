@@ -21,14 +21,23 @@ interface LobbyProps {
 }
 
 const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores }: LobbyProps) => {
-  // デバッグログ
-  const debugDiv = document.getElementById('debug-log');
-  if (debugDiv) {
-    const time = new Date().toLocaleTimeString();
-    debugDiv.innerHTML += `<div>[${time}] [LOBBY] Component rendering - players: ${players.length}, adminId: ${adminId}, myselfId: ${myself.id}</div>`;
-    debugDiv.scrollTop = debugDiv.scrollHeight;
-  }
-  console.log('[LOBBY] Component rendering', { players: players.length, adminId, myselfId: myself.id });
+  // デバッグログ出力ヘルパー関数（毎回debugDivを取得）
+  const addDebugLog = (message: string, isError = false) => {
+    const debugDiv = document.getElementById('debug-log');
+    if (debugDiv) {
+      const time = new Date().toLocaleTimeString();
+      const color = isError ? 'color:red;' : '';
+      debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+    }
+    if (isError) {
+      console.error(message);
+    } else {
+      console.log(message);
+    }
+  };
+  
+  addDebugLog(`[LOBBY] Component rendering - players: ${players.length}, adminId: ${adminId}, myselfId: ${myself.id}`);
   
   const isAdmin = myself.id === adminId;
 
@@ -303,17 +312,16 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
 };
 
 function App() {
-  // デバッグログに直接出力（DOMに表示される）
-  const debugDiv = document.getElementById('debug-log');
-  
-  // デバッグログ出力ヘルパー関数
+  // デバッグログ出力ヘルパー関数（毎回debugDivを取得）
   const addDebugLog = (message: string, isError = false) => {
+    const debugDiv = document.getElementById('debug-log');
     if (debugDiv) {
       const time = new Date().toLocaleTimeString();
       const color = isError ? 'color:red;' : '';
       debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
       debugDiv.scrollTop = debugDiv.scrollHeight;
     }
+    // コンソールにも出力（debugDivが取得できなくてもログは確認できる）
     if (isError) {
       console.error(message);
     } else {
