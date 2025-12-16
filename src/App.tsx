@@ -408,6 +408,7 @@ function App() {
   }
   
   addDebugLog(`[APP] Rendering main UI - phase: ${phase}, players: ${players.length}`);
+  console.log(`[APP] Rendering main UI - phase: ${phase}, players: ${players.length}`);
 
   const isAdmin = myself.id === adminId;
   const isQuestioner = myself.id === questionerId;
@@ -437,25 +438,38 @@ function App() {
     }
   }, [phase, playBGM, playSE]);
 
-
   // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
   useEffect(() => {
+    console.log(`[APP] About to render (useEffect) - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
     addDebugLog(`[APP] About to render (useEffect) - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
+    console.log(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
     addDebugLog(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
   }, [phase]);
   
   // デバッグ: phaseの値を確認（コンソールにも強制出力）
   console.log(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
-  addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
+  try {
+    addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
+  } catch (e) {
+    console.error('[APP] addDebugLog failed', e);
+  }
   
   // Lobbyコンポーネントをレンダリングするかどうかを決定
   const shouldRenderLobby = phase === 'LOBBY';
-  console.log(`[APP] shouldRenderLobby: ${shouldRenderLobby}`);
-  addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}`);
+  console.log(`[APP] shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
+  try {
+    addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
+  } catch (e) {
+    console.error('[APP] addDebugLog failed', e);
+  }
   
   // デバッグ: レンダリング直前のログ
   console.log(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
-  addDebugLog(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
+  try {
+    addDebugLog(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
+  } catch (e) {
+    console.error('[APP] addDebugLog failed', e);
+  }
   
   return (
     <div className="app-container">
