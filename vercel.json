@@ -12,6 +12,16 @@
     },
     {
       "source": "/.proxy/:path*",
+      "destination": "/api/proxy",
+      "has": [
+        {
+          "type": "query",
+          "key": "url"
+        }
+      ]
+    },
+    {
+      "source": "/.proxy/:path*",
       "destination": "/api/proxy?url=:path*"
     }
   ],

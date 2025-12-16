@@ -12,30 +12,56 @@ function debugLog(message: string, data?: any) {
   }
 }
 
-// グローバルfetchをインターセプトして、/.proxy/ リクエストを /.proxy?url= 形式に変換
-const originalFetch = window.fetch;
-window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-  
-  // 開発モードのみfetchをログに出力
-  if (import.meta.env.MODE === 'development') {
-    console.log('[FETCH]', url.slice(0, 100));
-  }
-  
+// プロキシURLを変換するヘルパー関数
+function convertProxyUrl(url: string): string {
   // /.proxy/https://... 形式を /.proxy?url=... 形式に変換
   if (url.includes('/.proxy/')) {
     const proxyMatch = url.match(/\/.proxy\/(https?:\/\/.+)/);
     if (proxyMatch) {
       const targetUrl = proxyMatch[1];
       const baseUrl = url.substring(0, url.indexOf('/.proxy/'));
-      url = `${baseUrl}/.proxy?url=${encodeURIComponent(targetUrl)}`;
+      const converted = `${baseUrl}/.proxy?url=${encodeURIComponent(targetUrl)}`;
       if (import.meta.env.MODE === 'development') {
-        console.log('[FETCH CONVERTED]', url.slice(0, 100));
+        console.log('[PROXY CONVERTED]', url.slice(0, 80), '→', converted.slice(0, 80));
       }
+      return converted;
     }
   }
+  return url;
+}
+
+// グローバルfetchをインターセプト
+const originalFetch = window.fetch;
+window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+  
+  if (import.meta.env.MODE === 'development') {
+    console.log('[FETCH]', url.slice(0, 100));
+  }
+  
+  url = convertProxyUrl(url);
   
   return originalFetch.call(window, url, init);
+};
+
+// XMLHttpRequestもインターセプト（PlayroomKitが使う可能性がある）
+const originalXHROpen = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function(
+  method: string, 
+  url: string | URL, 
+  async?: boolean, 
+  username?: string | null, 
+  password?: string | null
+) {
+  const urlString = typeof url === 'string' ? url : url.href;
+  
+  if (import.meta.env.MODE === 'development') {
+    console.log('[XHR]', method, urlString.slice(0, 100));
+  }
+  
+  const convertedUrl = convertProxyUrl(urlString);
+  
+  return originalXHROpen.call(this, method, convertedUrl, async, username, password);
 };
 
 // Discord SDKの初期化とユーザー情報の取得
@@ -142,12 +168,11 @@ async function initApp() {
   // PlayroomKitの初期化（非ブロッキング）
   debugLog('Starting PlayroomKit init...');
   
-  // discord: true にするとプロキシ問題が発生するため、false に設定
-  // Discord情報は手動で設定する
+  // discord: true でDiscord情報を自動取得（プロキシはインターセプターで修正）
   insertCoin({
     skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
-    discord: false  // プロキシ問題を回避
+    discord: isDiscordActivity  // プロキシ問題はインターセプターで解決
   }).then(() => {
     debugLog('PlayroomKit initialized successfully');
     // PlayroomKit初期化後にDiscordプロファイルを設定
