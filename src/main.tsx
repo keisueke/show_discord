@@ -28,6 +28,9 @@ const originalFetch = window.fetch;
 window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   
+  // すべてのfetchをログに出力（デバッグ用）
+  console.log('[FETCH]', url.slice(0, 100));
+  
   // /.proxy/https://... 形式を /.proxy?url=... 形式に変換
   if (url.includes('/.proxy/')) {
     const proxyMatch = url.match(/\/.proxy\/(https?:\/\/.+)/);
@@ -35,7 +38,16 @@ window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<R
       const targetUrl = proxyMatch[1];
       const baseUrl = url.substring(0, url.indexOf('/.proxy/'));
       url = `${baseUrl}/.proxy?url=${encodeURIComponent(targetUrl)}`;
-      debugLog('Fetch intercepted', { original: proxyMatch[0].slice(0, 50), converted: url.slice(0, 80) });
+      console.log('[FETCH CONVERTED]', url.slice(0, 100));
+      
+      // debugLogは後で定義されるので、ここでは使わない
+      setTimeout(() => {
+        try {
+          debugLog('Fetch intercepted', { original: proxyMatch[0].slice(0, 50), converted: url.slice(0, 80) });
+        } catch (e) {
+          // debugLogがまだ定義されていない場合は無視
+        }
+      }, 0);
     }
   }
   
