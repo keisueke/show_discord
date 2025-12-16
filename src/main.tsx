@@ -126,51 +126,89 @@ async function setDiscordProfile() {
 
     // Discord Activity内では、認証済みのユーザー情報を取得
     // まず認証を試みる（既に認証済みの場合はスキップされる）
+    let accessToken: string | null = null;
     try {
-      await discordSdkInstance.commands.authorize({
+      const authResult = await discordSdkInstance.commands.authorize({
         client_id: import.meta.env.VITE_DISCORD_CLIENT_ID || '',
         response_type: 'code',
         state: '',
         prompt: 'none',
         scope: ['identify'],
       });
-      debugLog('Discord authorization successful');
+      debugLog('Discord authorization successful', { code: authResult?.code ? 'received' : 'none' });
+      
+      // 認証コードからアクセストークンを取得
+      // 注意: Discord Activity内では、認証コードをバックエンドでトークンと交換する必要がある
+      // しかし、Discord Activity内では、アクセストークンが直接利用可能な場合がある
+      if (authResult && 'access_token' in authResult) {
+        accessToken = (authResult as any).access_token;
+        debugLog('Access token received from authorize');
+      }
     } catch (authError) {
       // 認証エラーは無視（既に認証済みの場合など）
       debugLog('Auth skipped', authError instanceof Error ? authError.message : 'Unknown');
     }
 
     // Discord SDKからユーザー情報を取得
-    // Discord Activity内では、認証後にユーザー情報を取得
     let discordUser: any = null;
     
-    try {
-      // 認証後にアクセストークンを使用してDiscord APIからユーザー情報を取得
-      // または、SDKの他の方法を使用
-      // 注意: Discord Activity内では、ユーザー情報は自動的に利用可能な場合がある
-      
-      // 方法1: SDKのplatformからユーザー情報を取得（利用可能な場合）
-      if ((discordSdkInstance as any).platform && (discordSdkInstance as any).platform.user) {
-        discordUser = (discordSdkInstance as any).platform.user;
-        debugLog('Discord user from platform.user', { 
-          id: discordUser?.id, 
-          username: discordUser?.username 
+    // 方法1: authenticate()メソッドを使用してアクセストークンを取得
+    if (!accessToken) {
+      try {
+        const authenticateResult = await discordSdkInstance.commands.authenticate({
+          access_token: undefined, // Discord Activity内では自動的に取得される
         });
+        if (authenticateResult && 'access_token' in authenticateResult) {
+          accessToken = (authenticateResult as any).access_token;
+          debugLog('Access token received from authenticate');
+        }
+      } catch (e) {
+        debugLog('Failed to authenticate', e instanceof Error ? e.message : 'Unknown');
       }
-    } catch (e) {
-      debugLog('Failed to get user from platform.user', e instanceof Error ? e.message : 'Unknown');
     }
 
-    // 方法2: 認証後にRPC経由でユーザー情報を取得
+    // 方法2: アクセストークンを使用してDiscord APIからユーザー情報を取得
+    if (accessToken) {
+      try {
+        const response = await fetch('https://discord.com/api/v10/users/@me', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          discordUser = await response.json();
+          debugLog('Discord user from API', { 
+            id: discordUser?.id, 
+            username: discordUser?.username,
+            global_name: discordUser?.global_name
+          });
+        } else {
+          debugLog('Failed to fetch user from Discord API', { status: response.status, statusText: response.statusText });
+        }
+      } catch (e) {
+        debugLog('Failed to fetch user from Discord API', e instanceof Error ? e.message : 'Unknown');
+      }
+    }
+
+    // 方法3: SDKのplatformからユーザー情報を取得（フォールバック）
     if (!discordUser) {
       try {
-        // Discord Activity内では、認証後にユーザー情報が利用可能になる
-        // ここでは、PlayroomKitのdiscord: trueオプションを使用することを推奨
-        // 手動設定の場合は、認証トークンを使用してDiscord APIを直接呼び出す必要がある
-        debugLog('Discord user information not available via SDK, consider using discord: true option');
+        if ((discordSdkInstance as any).platform && (discordSdkInstance as any).platform.user) {
+          discordUser = (discordSdkInstance as any).platform.user;
+          debugLog('Discord user from platform.user', { 
+            id: discordUser?.id, 
+            username: discordUser?.username 
+          });
+        }
       } catch (e) {
-        debugLog('Failed to get user via alternative method', e instanceof Error ? e.message : 'Unknown');
+        debugLog('Failed to get user from platform.user', e instanceof Error ? e.message : 'Unknown');
       }
+    }
+
+    if (!discordUser) {
+      debugLog('Discord user information not available via SDK, consider using discord: true option');
     }
 
     // Discord情報をPlayroomKitのプロファイルに設定
