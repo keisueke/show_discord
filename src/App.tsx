@@ -36,8 +36,19 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
     // エラーをDOMに直接書き込む（Discord内でも確認可能）
     try {
       const errorDiv = document.createElement('div');
-      errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;';
-      errorDiv.textContent = `[ERROR BOUNDARY] ${error.message} - ${errorInfo.componentStack?.slice(0, 200)}`;
+      errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;font-size:12px;max-height:300px;overflow-y:auto;';
+      
+      const errorMessage = error.message || 'Unknown error';
+      const errorStack = error.stack || 'No stack trace';
+      const componentStack = errorInfo.componentStack || 'No component stack';
+      
+      errorDiv.innerHTML = `
+        <div style="font-weight:bold;margin-bottom:10px;">[ERROR BOUNDARY] React Error #310 (Hooks Rules Violation)</div>
+        <div style="margin-bottom:5px;"><strong>Message:</strong> ${errorMessage}</div>
+        <div style="margin-bottom:5px;"><strong>Stack:</strong> ${errorStack.slice(0, 500)}</div>
+        <div style="margin-bottom:5px;"><strong>Component Stack:</strong> ${componentStack.slice(0, 500)}</div>
+        <div style="margin-top:10px;font-size:10px;opacity:0.8;">Visit https://react.dev/errors/310 for more info</div>
+      `;
       
       if (document.body) {
         document.body.appendChild(errorDiv);
@@ -548,7 +559,39 @@ function App() {
     });
   }, [phase, players.length, myself?.id, adminId, myself]);
 
-  // myselfがnullの場合はローディング表示
+  // Sound Management - フックは条件分岐の前に呼び出す（React Hooks Rules）
+  useEffect(() => {
+    if (!myself) return; // myselfがnullの場合は何もしない
+    addDebugLog(`[APP] Sound Management useEffect executed - phase: ${phase}`);
+    if (phase === 'LOBBY') {
+      playBGM('bgm_lobby');
+    } else {
+      playBGM('bgm_game');
+    }
+
+    if (phase === 'QUESTION_SELECTION') {
+      // Maybe a specific sound?
+    }
+    if (phase === 'QUESTION') {
+      playSE('se_question');
+    }
+    if (phase === 'REVEAL') {
+      playSE('se_result');
+    }
+  }, [phase, playBGM, playSE, myself]);
+
+  // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
+  // レンダリング後に確実にログが表示されるようにする
+  const shouldRenderLobby = phase === 'LOBBY';
+  useEffect(() => {
+    if (!myself) return; // myselfがnullの場合は何もしない
+    addDebugLog(`[APP] Render complete (useEffect) - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
+    addDebugLog(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
+    addDebugLog(`[APP] DOM check - app-container exists: ${!!document.querySelector('.app-container')}`);
+    addDebugLog(`[APP] DOM check - lobby exists: ${!!document.querySelector('.lobby')}`);
+  }, [phase, shouldRenderLobby, myself]);
+
+  // myselfがnullの場合はローディング表示（フックの後に配置）
   if (!myself) {
     addDebugLog(`[APP] myself is null, showing loading... - players: ${players.length}, phase: ${phase}`);
     return (
@@ -576,48 +619,6 @@ function App() {
 
   const myAnswer = myself.getState('answer') as number | undefined;
   addDebugLog(`[APP] myAnswer: ${myAnswer}`);
-  addDebugLog(`[APP] About to define Sound Management useEffect`);
-
-  // Sound Management
-  useEffect(() => {
-    addDebugLog(`[APP] Sound Management useEffect executed - phase: ${phase}`);
-    if (phase === 'LOBBY') {
-      playBGM('bgm_lobby');
-    } else {
-      playBGM('bgm_game');
-    }
-
-    if (phase === 'QUESTION_SELECTION') {
-      // Maybe a specific sound?
-    }
-    if (phase === 'QUESTION') {
-      playSE('se_question');
-    }
-    if (phase === 'REVEAL') {
-      playSE('se_result');
-    }
-  }, [phase, playBGM, playSE]);
-
-  addDebugLog(`[APP] Sound Management useEffect defined`);
-  addDebugLog(`[APP] About to calculate shouldRenderLobby`);
-
-  // Lobbyコンポーネントをレンダリングするかどうかを決定
-  const shouldRenderLobby = phase === 'LOBBY';
-  addDebugLog(`[APP] shouldRenderLobby calculated: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
-  
-  addDebugLog(`[APP] About to define Render complete useEffect`);
-  
-  // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
-  // レンダリング後に確実にログが表示されるようにする
-  useEffect(() => {
-    addDebugLog(`[APP] Render complete (useEffect) - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
-    addDebugLog(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
-    addDebugLog(`[APP] DOM check - app-container exists: ${!!document.querySelector('.app-container')}`);
-    addDebugLog(`[APP] DOM check - lobby exists: ${!!document.querySelector('.lobby')}`);
-  }, [phase, shouldRenderLobby]);
-  
-  addDebugLog(`[APP] Render complete useEffect defined`);
-  addDebugLog(`[APP] About to check shouldRenderLobby condition`);
   
   // Lobbyコンポーネントを事前にログ出力してからレンダリング
   if (shouldRenderLobby) {
