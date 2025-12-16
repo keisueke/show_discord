@@ -327,11 +327,41 @@ async function setDiscordProfile() {
       }
       
       if (!profileSet) {
-        debugLog('All profile setting methods failed, profile data prepared but not set', {
-          profileData,
-          playerMethods: Object.getOwnPropertyNames(player),
-          playerPrototype: Object.getOwnPropertyNames(Object.getPrototypeOf(player))
-        });
+        // デバッグ情報を取得（ログが長すぎる場合は分割）
+        const playerMethods = Object.getOwnPropertyNames(player);
+        const playerPrototype = Object.getOwnPropertyNames(Object.getPrototypeOf(player));
+        const playerKeys = Object.keys(player);
+        
+        debugLog('All profile setting methods failed - Player methods', playerMethods.slice(0, 20));
+        debugLog('All profile setting methods failed - Player prototype', playerPrototype.slice(0, 20));
+        debugLog('All profile setting methods failed - Player keys', playerKeys.slice(0, 20));
+        debugLog('All profile setting methods failed - Profile data', profileData);
+        
+        // 方法5: getProfile()で取得したオブジェクトを直接変更
+        try {
+          const currentProfile = player.getProfile();
+          debugLog('Current profile from getProfile()', currentProfile);
+          
+          // プロファイルオブジェクトのプロパティを直接変更
+          if (currentProfile && typeof currentProfile === 'object') {
+            Object.assign(currentProfile, profileData);
+            debugLog('Discord profile set via Object.assign to getProfile() result', profileData);
+            profileSet = true;
+          }
+        } catch (e) {
+          debugLog('Object.assign to getProfile() failed', e instanceof Error ? e.message : 'Unknown');
+        }
+        
+        if (!profileSet) {
+          debugLog('All profile setting methods failed - Final attempt: using setState');
+          // 方法6: setStateを使用してプロファイル情報を保存
+          try {
+            player.setState('discordProfile', profileData);
+            debugLog('Discord profile saved to state (may need custom rendering)', profileData);
+          } catch (e) {
+            debugLog('setState for profile failed', e instanceof Error ? e.message : 'Unknown');
+          }
+        }
       }
     } else {
       debugLog('Discord user information not available, using default profile');
