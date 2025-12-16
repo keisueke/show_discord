@@ -127,7 +127,7 @@ async function initApp() {
     const insertCoinPromise = insertCoin({
       skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
       gameId: 'GLWLPW9PB5oKsi0GGQdf',
-      discord: isDiscordActivity
+      discord: false  // プロキシ問題を回避するため一時的にfalse
     });
 
     const timeoutPromise = new Promise<never>((_, reject) => 
