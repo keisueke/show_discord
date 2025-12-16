@@ -844,6 +844,7 @@ function App() {
           currentRound={currentRound}
           maxRounds={settings.maxRounds}
           isDoubleScore={isDoubleScore}
+          timeLimit={settings.timeLimit}
         />
       )}
       {phase === 'ANSWERING' && (
