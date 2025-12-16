@@ -326,9 +326,19 @@ function App() {
       playersCount: players.length,
       myselfId: myself?.id,
       adminId,
-      skipLobby: import.meta.env.MODE === 'development'
+      skipLobby: import.meta.env.MODE === 'development',
+      myselfExists: !!myself
     });
-  }, [phase, players.length, myself?.id, adminId]);
+  }, [phase, players.length, myself?.id, adminId, myself]);
+
+  // myselfがnullの場合は何も表示しない
+  if (!myself) {
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>
+        <div>PlayroomKit初期化中...</div>
+      </div>
+    );
+  }
 
   const isAdmin = myself.id === adminId;
   const isQuestioner = myself.id === questionerId;
