@@ -53,11 +53,21 @@ async function initApp() {
 
       // Discord SDKの初期化
       const discordSdk = new DiscordSDK(clientId);
-      console.log('Discord SDK created, waiting for ready...');
+      console.log('Discord SDK created, waiting for ready...', {
+        clientId: clientId.substring(0, 10) + '...',
+        url: window.location.href
+      });
 
       // ready()を呼び出すことで、Discordにアプリが準備完了であることを通知
       // これにより、Discord内でアプリが正しく表示されます
-      await discordSdk.ready();
+      // タイムアウトを設定して、長時間待機しないようにする
+      const readyPromise = discordSdk.ready();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Discord SDK ready() timeout after 10s')), 10000)
+      );
+
+      await Promise.race([readyPromise, timeoutPromise]);
+      
       console.log('Discord SDK is ready!', {
         instanceId: discordSdk.instanceId,
         channelId: discordSdk.channelId,
@@ -67,8 +77,15 @@ async function initApp() {
 
     } catch (error) {
       console.error('Discord SDK initialization failed:', error);
-      // Discord SDK初期化失敗時もアプリは続行（デバッグ用）
-      // ただし、Discord内では画面が表示されない可能性があります
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
+      });
+      
+      // Discord SDK初期化失敗時もアプリは続行
+      // エラーが発生してもアプリを表示する（デバッグ用）
+      console.warn('Continuing without Discord SDK - app will still render');
     }
   } else {
     console.log('Running in non-Discord environment (local development mode)');
