@@ -454,14 +454,40 @@ function App() {
   }, [phase]);
   
   // デバッグ: phaseの値を確認（DOMに確実に出力）
-  addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
+  // 複数回呼び出して確実にログを出力
+  try {
+    addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
+  } catch (e) {
+    // エラーが発生した場合は、直接DOMに書き込む
+    const debugDiv = document.getElementById('debug-log') || document.createElement('div');
+    if (!debugDiv.id) {
+      debugDiv.id = 'debug-log';
+      debugDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
+      document.body.appendChild(debugDiv);
+    }
+    debugDiv.innerHTML += `<div style="color:red;">[${new Date().toLocaleTimeString()}] [APP] addDebugLog ERROR: ${e}</div>`;
+  }
   
   // Lobbyコンポーネントをレンダリングするかどうかを決定
   const shouldRenderLobby = phase === 'LOBBY';
-  addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
+  try {
+    addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
+  } catch (e) {
+    const debugDiv = document.getElementById('debug-log');
+    if (debugDiv) {
+      debugDiv.innerHTML += `<div style="color:red;">[${new Date().toLocaleTimeString()}] [APP] shouldRenderLobby ERROR: ${e}</div>`;
+    }
+  }
   
   // デバッグ: レンダリング直前のログ
-  addDebugLog(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
+  try {
+    addDebugLog(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
+  } catch (e) {
+    const debugDiv = document.getElementById('debug-log');
+    if (debugDiv) {
+      debugDiv.innerHTML += `<div style="color:red;">[${new Date().toLocaleTimeString()}] [APP] About to return JSX ERROR: ${e}</div>`;
+    }
+  }
   
   return (
     <div className="app-container">
