@@ -294,17 +294,39 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
 };
 
 function App() {
+  // デバッグログに直接出力（DOMに表示される）
+  const debugDiv = document.getElementById('debug-log');
+  if (debugDiv) {
+    const time = new Date().toLocaleTimeString();
+    debugDiv.innerHTML += `<div>[${time}] [APP] Component rendering...</div>`;
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+  }
   console.log('[APP] Component rendering...');
   
   const { playSE, playBGM, toggleMute, muted } = useSounds();
+  if (debugDiv) {
+    const time = new Date().toLocaleTimeString();
+    debugDiv.innerHTML += `<div>[${time}] [APP] useSounds initialized</div>`;
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+  }
   console.log('[APP] useSounds initialized');
 
   // Use new game engine
   let engine;
   try {
     engine = useGameEngine();
+    if (debugDiv) {
+      const time = new Date().toLocaleTimeString();
+      debugDiv.innerHTML += `<div>[${time}] [APP] useGameEngine initialized</div>`;
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+    }
     console.log('[APP] useGameEngine initialized');
   } catch (error) {
+    if (debugDiv) {
+      const time = new Date().toLocaleTimeString();
+      debugDiv.innerHTML += `<div style="color:red;">[${time}] [APP] useGameEngine ERROR: ${error instanceof Error ? error.message : String(error)}</div>`;
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+    }
     console.error('[APP] useGameEngine error:', error);
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>
