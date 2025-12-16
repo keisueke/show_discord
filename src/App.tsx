@@ -660,7 +660,9 @@ function App() {
   const handleToggleDebug = () => {
     const newState = !debugMode;
     setDebugMode(newState);
-    toggleDebugLog();
+    if (window.toggleDebugLog) {
+      window.toggleDebugLog();
+    }
   };
 
   return (

@@ -9,14 +9,20 @@ import App from './App.tsx'
 // デバッグログの表示状態を管理
 let debugLogVisible = false;
 
-// デバッグログの表示/非表示を切り替える関数
-export function toggleDebugLog() {
+// デバッグログの表示/非表示を切り替える関数（グローバルに公開）
+declare global {
+  interface Window {
+    toggleDebugLog?: () => void;
+  }
+}
+
+window.toggleDebugLog = function() {
   debugLogVisible = !debugLogVisible;
   const debugDiv = document.getElementById('debug-log');
   if (debugDiv) {
     debugDiv.style.display = debugLogVisible ? 'block' : 'none';
   }
-}
+};
 
 // デバッグ用：ログを出力（表示状態に応じてDOMに表示）
 function debugLog(message: string, data?: any) {
