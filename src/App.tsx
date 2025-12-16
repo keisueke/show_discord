@@ -319,6 +319,17 @@ function App() {
     nextRound
   } = engine;
 
+  // デバッグ: 現在の状態をログに出力
+  useEffect(() => {
+    console.log('[APP STATE]', {
+      phase,
+      playersCount: players.length,
+      myselfId: myself?.id,
+      adminId,
+      skipLobby: import.meta.env.MODE === 'development'
+    });
+  }, [phase, players.length, myself?.id, adminId]);
+
   const isAdmin = myself.id === adminId;
   const isQuestioner = myself.id === questionerId;
 
