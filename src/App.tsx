@@ -515,6 +515,9 @@ function App() {
   
   addDebugLog('[APP] Component rendering...');
   
+  // デバッグモードの状態管理（フックは条件分岐の前に配置）
+  const [debugMode, setDebugMode] = useState(false);
+  
   const { playSE, playBGM, toggleMute, muted } = useSounds();
   addDebugLog('[APP] useSounds initialized');
 
@@ -654,9 +657,6 @@ function App() {
   // デバッグ: return文の前に確実にログを出力
   addDebugLog(`[APP] Before return - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
   
-  // デバッグモードの状態管理
-  const [debugMode, setDebugMode] = useState(false);
-
   const handleToggleDebug = () => {
     const newState = !debugMode;
     setDebugMode(newState);
