@@ -296,47 +296,40 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
 function App() {
   // デバッグログに直接出力（DOMに表示される）
   const debugDiv = document.getElementById('debug-log');
-  if (debugDiv) {
-    const time = new Date().toLocaleTimeString();
-    debugDiv.innerHTML += `<div>[${time}] [APP] Component rendering...</div>`;
-    debugDiv.scrollTop = debugDiv.scrollHeight;
-  }
-  console.log('[APP] Component rendering...');
+  
+  // デバッグログ出力ヘルパー関数
+  const addDebugLog = (message: string, isError = false) => {
+    if (debugDiv) {
+      const time = new Date().toLocaleTimeString();
+      const color = isError ? 'color:red;' : '';
+      debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+    }
+    if (isError) {
+      console.error(message);
+    } else {
+      console.log(message);
+    }
+  };
+  
+  addDebugLog('[APP] Component rendering...');
   
   const { playSE, playBGM, toggleMute, muted } = useSounds();
-  if (debugDiv) {
-    const time = new Date().toLocaleTimeString();
-    debugDiv.innerHTML += `<div>[${time}] [APP] useSounds initialized</div>`;
-    debugDiv.scrollTop = debugDiv.scrollHeight;
-  }
-  console.log('[APP] useSounds initialized');
+  addDebugLog('[APP] useSounds initialized');
 
   // Use new game engine
   let engine;
   try {
     engine = useGameEngine();
-    if (debugDiv) {
-      const time = new Date().toLocaleTimeString();
-      debugDiv.innerHTML += `<div>[${time}] [APP] useGameEngine initialized</div>`;
-      debugDiv.scrollTop = debugDiv.scrollHeight;
-    }
-    console.log('[APP] useGameEngine initialized');
+    addDebugLog('[APP] useGameEngine initialized');
   } catch (error) {
-    if (debugDiv) {
-      const time = new Date().toLocaleTimeString();
-      debugDiv.innerHTML += `<div style="color:red;">[${time}] [APP] useGameEngine ERROR: ${error instanceof Error ? error.message : String(error)}</div>`;
-      debugDiv.scrollTop = debugDiv.scrollHeight;
-    }
-    console.error('[APP] useGameEngine error:', error);
+    addDebugLog(`[APP] useGameEngine ERROR: ${error instanceof Error ? error.message : String(error)}`, true);
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>
         <div>エラー: useGameEngineの初期化に失敗しました</div>
       </div>
     );
   }
-  
-  // デバッグログに出力
-  const debugDiv = document.getElementById('debug-log');
   
   let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, scores, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound;
   
@@ -362,19 +355,9 @@ function App() {
       nextRound
     } = engine);
     
-    if (debugDiv) {
-      const time = new Date().toLocaleTimeString();
-      debugDiv.innerHTML += `<div>[${time}] [APP] Engine state extracted - phase: ${phase}, players: ${players.length}, myself: ${!!myself}</div>`;
-      debugDiv.scrollTop = debugDiv.scrollHeight;
-    }
-    console.log('[APP] Engine state extracted', { phase, playersCount: players.length, myselfExists: !!myself });
+    addDebugLog(`[APP] Engine state extracted - phase: ${phase}, players: ${players.length}, myself: ${!!myself}`);
   } catch (error) {
-    if (debugDiv) {
-      const time = new Date().toLocaleTimeString();
-      debugDiv.innerHTML += `<div style="color:red;">[${time}] [APP] Engine destructuring ERROR: ${error instanceof Error ? error.message : String(error)}</div>`;
-      debugDiv.scrollTop = debugDiv.scrollHeight;
-    }
-    console.error('[APP] Engine destructuring error:', error);
+    addDebugLog(`[APP] Engine destructuring ERROR: ${error instanceof Error ? error.message : String(error)}`, true);
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>
         <div>エラー: エンジン状態の取得に失敗しました</div>
@@ -396,12 +379,7 @@ function App() {
 
   // myselfがnullの場合はローディング表示
   if (!myself) {
-    if (debugDiv) {
-      const time = new Date().toLocaleTimeString();
-      debugDiv.innerHTML += `<div>[${time}] [APP] myself is null, showing loading... - players: ${players.length}, phase: ${phase}</div>`;
-      debugDiv.scrollTop = debugDiv.scrollHeight;
-    }
-    console.log('[APP] myself is null, showing loading...');
+    addDebugLog(`[APP] myself is null, showing loading... - players: ${players.length}, phase: ${phase}`);
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white', flexDirection: 'column' }}>
         <div>PlayroomKit初期化中...</div>
@@ -412,12 +390,7 @@ function App() {
     );
   }
   
-  if (debugDiv) {
-    const time = new Date().toLocaleTimeString();
-    debugDiv.innerHTML += `<div>[${time}] [APP] Rendering main UI - phase: ${phase}, players: ${players.length}</div>`;
-    debugDiv.scrollTop = debugDiv.scrollHeight;
-  }
-  console.log('[APP] Rendering main UI', { phase, playersCount: players.length });
+  addDebugLog(`[APP] Rendering main UI - phase: ${phase}, players: ${players.length}`);
 
   const isAdmin = myself.id === adminId;
   const isQuestioner = myself.id === questionerId;
