@@ -430,8 +430,18 @@ function App() {
   }, [phase, playBGM, playSE]);
 
 
+  // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
+  useEffect(() => {
+    addDebugLog(`[APP] About to render (useEffect) - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
+    addDebugLog(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
+  }, [phase]);
+  
   // デバッグ: phaseの値を確認
   addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
+  
+  // Lobbyコンポーネントをレンダリングするかどうかを決定
+  const shouldRenderLobby = phase === 'LOBBY';
+  addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}`);
   
   return (
     <div className="app-container">
@@ -443,8 +453,8 @@ function App() {
         {muted ? '🔇' : '🔊'}
       </button>
 
-      {phase === 'LOBBY' ? (() => {
-        addDebugLog(`[APP] Phase is LOBBY, rendering Lobby component`);
+      {shouldRenderLobby && (() => {
+        addDebugLog(`[APP] Rendering Lobby component now`);
         return (
           <Lobby
             players={players}
@@ -457,9 +467,6 @@ function App() {
             scores={scores}
           />
         );
-      })() : (() => {
-        addDebugLog(`[APP] Phase is NOT LOBBY, current phase: "${phase}"`);
-        return null;
       })()}
       {phase === 'QUESTION_SELECTION' && (
         <SelectionScreen
