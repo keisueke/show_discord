@@ -170,24 +170,34 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
 
       <div className="players-list">
         <h3>参加者</h3>
-        {players.map((p) => (
-          <div key={p.id} className="player-badge" style={{ backgroundColor: (p.getProfile().color as any).hex || '#ccc' }}>
-            <span className="player-info">
-              {p.id === adminId && <span className="admin-badge">👑</span>}
-              {p.getProfile().name} {p.id === myself.id && '(You)'}
-              <span className="score-badge">Pts: {scores[p.id] || 0}</span>
-            </span>
-            {isAdmin && p.id !== myself.id && (
-              <button
-                className="btn-small"
-                onClick={() => onTransferAdmin(p.id)}
-                title="管理者を譲渡"
-              >
-                譲渡
-              </button>
-            )}
-          </div>
-        ))}
+        {players.map((p) => {
+          // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
+          const isMyself = p.id === myself.id;
+          const discordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
+          const profile = p.getProfile();
+          const displayName = discordProfile?.name || profile.name;
+          const displayColor = discordProfile?.color || profile.color;
+          const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#ccc';
+          
+          return (
+            <div key={p.id} className="player-badge" style={{ backgroundColor: colorHex }}>
+              <span className="player-info">
+                {p.id === adminId && <span className="admin-badge">👑</span>}
+                {displayName} {p.id === myself.id && '(You)'}
+                <span className="score-badge">Pts: {scores[p.id] || 0}</span>
+              </span>
+              {isAdmin && p.id !== myself.id && (
+                <button
+                  className="btn-small"
+                  onClick={() => onTransferAdmin(p.id)}
+                  title="管理者を譲渡"
+                >
+                  譲渡
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {isAdmin ? (
@@ -614,7 +624,12 @@ function App() {
 
   // Find questioner name
   const questionerPlayer = players.find(p => p.id === questionerId);
-  const questionerName = questionerPlayer ? questionerPlayer.getProfile().name : 'Unknown';
+  // 質問者の名前を取得（自分自身の場合はDiscord情報を優先）
+  const questionerName = questionerPlayer 
+    ? (questionerPlayer.id === myself.id && (window as any).discordProfile?.name
+        ? (window as any).discordProfile.name
+        : questionerPlayer.getProfile().name)
+    : 'Unknown';
   addDebugLog(`[APP] questionerName: ${questionerName}`);
 
   const myAnswer = myself.getState('answer') as number | undefined;

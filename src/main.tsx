@@ -105,6 +105,17 @@ async function initDiscordSDK(isDiscordActivity: boolean): Promise<DiscordSDK | 
   }
 }
 
+// グローバルにDiscord情報を保存（Reactコンポーネントからアクセス可能にする）
+declare global {
+  interface Window {
+    discordProfile?: {
+      name: string;
+      photo?: string;
+      color?: { r: number; g: number; b: number; hexString: string; hex: number } | { hex: string };
+    };
+  }
+}
+
 // Discordユーザー情報を取得してPlayroomKitに設定
 async function setDiscordProfile() {
   if (!discordSdkInstance) {
@@ -261,6 +272,11 @@ async function setDiscordProfile() {
         colorType: currentProfile.color ? typeof currentProfile.color : 'none'
       });
 
+      // グローバルにDiscord情報を保存（Reactコンポーネントからアクセス可能にする）
+      window.discordProfile = {
+        name: discordUser.username || discordUser.global_name || 'Discord User',
+      };
+
       // PlayroomKitのプロファイル構造に合わせてデータを準備
       const profileData: any = {
         name: discordUser.username || discordUser.global_name || 'Discord User',
@@ -270,6 +286,7 @@ async function setDiscordProfile() {
       if (discordUser.avatar) {
         const avatarUrl = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`;
         profileData.photo = avatarUrl; // PlayroomKitは photo を使用
+        window.discordProfile!.photo = avatarUrl; // グローバルにも保存
       }
 
       // 色を設定（PlayroomKitの形式に合わせる）
@@ -309,17 +326,22 @@ async function setDiscordProfile() {
             const hexString = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
             const hex = parseInt(hexString.slice(1), 16);
             profileData.color = { r, g, b, hexString, hex };
+            window.discordProfile!.color = { r, g, b, hexString, hex }; // グローバルにも保存
           }
         } else if ('hex' in currentProfile.color) {
           // シンプルなhex形式の場合
           if (discordUser.accent_color) {
             profileData.color = { hex: `#${discordUser.accent_color.toString(16).padStart(6, '0')}` };
+            window.discordProfile!.color = { hex: `#${discordUser.accent_color.toString(16).padStart(6, '0')}` };
           } else {
             const colorSeed = parseInt(discordUser.id) % 360;
             profileData.color = { hex: `hsl(${colorSeed}, 70%, 50%)` };
+            window.discordProfile!.color = { hex: `hsl(${colorSeed}, 70%, 50%)` };
           }
         }
       }
+      
+      debugLog('Discord profile saved to window.discordProfile', window.discordProfile);
 
       // PlayroomKitのプロファイルを設定
       // 複数の方法を試す
