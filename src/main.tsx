@@ -126,7 +126,7 @@ async function initApp() {
     debugLog('Starting PlayroomKit init...');
     const insertCoinPromise = insertCoin({
       skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
-      gameId: 'QuizGoodLine',
+      gameId: 'GLWLPW9PB5oKsi0GGQdf',
       discord: isDiscordActivity
     });
 
