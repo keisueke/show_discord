@@ -141,28 +141,20 @@ async function setDiscordProfile() {
     }
 
     // Discord SDKからユーザー情報を取得
-    // Discord Activity内では、discordSdkInstance.user に直接アクセスできる場合がある
+    // Discord Activity内では、getUser()コマンドを使用してユーザー情報を取得
     let discordUser: any = null;
     
     try {
-      // 方法1: SDKのuserプロパティから取得
-      if (discordSdkInstance.user) {
-        discordUser = discordSdkInstance.user;
-        debugLog('Discord user from SDK.user', { id: discordUser.id, username: discordUser.username });
-      }
+      // getUser()コマンドを使用（引数なしで現在のユーザー情報を取得）
+      const userResult = await discordSdkInstance.commands.getUser({});
+      discordUser = userResult;
+      debugLog('Discord user from getUser()', { 
+        id: discordUser?.id, 
+        username: discordUser?.username,
+        global_name: discordUser?.global_name 
+      });
     } catch (e) {
-      debugLog('Failed to get user from SDK.user', e instanceof Error ? e.message : 'Unknown');
-    }
-
-    // 方法2: getUser()コマンドを使用
-    if (!discordUser) {
-      try {
-        const userResult = await discordSdkInstance.commands.getUser();
-        discordUser = userResult;
-        debugLog('Discord user from getUser()', { id: discordUser?.id, username: discordUser?.username });
-      } catch (e) {
-        debugLog('Failed to get user from getUser()', e instanceof Error ? e.message : 'Unknown');
-      }
+      debugLog('Failed to get user from getUser()', e instanceof Error ? e.message : 'Unknown');
     }
 
     // Discord情報をPlayroomKitのプロファイルに設定
@@ -187,8 +179,16 @@ async function setDiscordProfile() {
       }
 
       // PlayroomKitのプロファイルを設定
-      player.setProfile(profileData);
-      debugLog('Discord profile set to PlayroomKit', profileData);
+      // setProfileが存在しない場合は、型アサーションを使用
+      if ('setProfile' in player && typeof (player as any).setProfile === 'function') {
+        (player as any).setProfile(profileData);
+        debugLog('Discord profile set to PlayroomKit', profileData);
+      } else {
+        debugLog('setProfile method not available on player, trying alternative method');
+        // 代替方法: PlayroomKitの内部APIを使用する可能性がある
+        // または、discord: true オプションを使用する必要がある
+        debugLog('Profile data prepared but not set', profileData);
+      }
     } else {
       debugLog('Discord user information not available, using default profile');
     }
