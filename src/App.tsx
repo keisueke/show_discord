@@ -430,6 +430,9 @@ function App() {
   }, [phase, playBGM, playSE]);
 
 
+  // デバッグ: phaseの値を確認
+  addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
+  
   return (
     <div className="app-container">
       <button
@@ -440,18 +443,27 @@ function App() {
         {muted ? '🔇' : '🔊'}
       </button>
 
-      {phase === 'LOBBY' && (
-        <Lobby
-          players={players}
-          myself={myself}
-          adminId={adminId}
-          settings={settings}
-          onStart={startGame}
-          onUpdateSettings={updateSettings}
-          onTransferAdmin={transferAdmin}
-          scores={scores}
-        />
-      )}
+      {(() => {
+        addDebugLog(`[APP] Checking phase condition - phase: "${phase}", condition result: ${phase === 'LOBBY'}`);
+        if (phase === 'LOBBY') {
+          addDebugLog(`[APP] Phase is LOBBY, rendering Lobby component`);
+          return (
+            <Lobby
+              players={players}
+              myself={myself}
+              adminId={adminId}
+              settings={settings}
+              onStart={startGame}
+              onUpdateSettings={updateSettings}
+              onTransferAdmin={transferAdmin}
+              scores={scores}
+            />
+          );
+        } else {
+          addDebugLog(`[APP] Phase is NOT LOBBY, current phase: "${phase}"`);
+          return null;
+        }
+      })()}
       {phase === 'QUESTION_SELECTION' && (
         <SelectionScreen
           isQuestioner={isQuestioner}
