@@ -145,7 +145,7 @@ async function initApp() {
   insertCoin({
     skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
-    discord: false  // プロキシ問題を回避するためfalse
+    discord: isDiscordActivity  // Discord Activity内ではtrue
   }).then(() => {
     debugLog('PlayroomKit initialized successfully');
     // PlayroomKit初期化後にDiscordプロファイルを設定
