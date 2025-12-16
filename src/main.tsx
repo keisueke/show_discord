@@ -217,12 +217,29 @@ async function initApp() {
   debugLog('Rendering React app...');
   const root = document.getElementById('root');
   if (root) {
-    createRoot(root).render(
-      <StrictMode>
-        <App />
-      </StrictMode>,
-    );
-    debugLog('React app rendered successfully');
+    try {
+      debugLog('Root element found, creating React root...');
+      const reactRoot = createRoot(root);
+      debugLog('React root created, rendering App component...');
+      reactRoot.render(
+        <StrictMode>
+          <App />
+        </StrictMode>,
+      );
+      debugLog('React app rendered successfully');
+    } catch (error) {
+      debugLog('ERROR: React rendering failed', {
+        message: error instanceof Error ? error.message : 'Unknown',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      root.innerHTML = `
+        <div style="color: white; padding: 20px; text-align: center;">
+          <h2>レンダリングエラー</h2>
+          <p>Reactアプリのレンダリング中にエラーが発生しました。</p>
+          <pre style="text-align: left; background: #222; padding: 10px; margin-top: 10px;">${error instanceof Error ? error.message : String(error)}</pre>
+        </div>
+      `;
+    }
   } else {
     debugLog('ERROR: root element not found!');
   }
