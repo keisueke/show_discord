@@ -312,20 +312,30 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
 };
 
 function App() {
-  // デバッグログ出力ヘルパー関数（毎回debugDivを取得）
+  // デバッグログ出力ヘルパー関数（毎回debugDivを取得・作成）
   const addDebugLog = (message: string, isError = false) => {
-    const debugDiv = document.getElementById('debug-log');
-    if (debugDiv) {
-      const time = new Date().toLocaleTimeString();
-      const color = isError ? 'color:red;' : '';
-      debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
-      debugDiv.scrollTop = debugDiv.scrollHeight;
+    // debugDivを取得、存在しない場合は作成
+    let debugDiv = document.getElementById('debug-log');
+    if (!debugDiv) {
+      debugDiv = document.createElement('div');
+      debugDiv.id = 'debug-log';
+      debugDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
+      document.body.appendChild(debugDiv);
     }
-    // コンソールにも出力（debugDivが取得できなくてもログは確認できる）
-    if (isError) {
-      console.error(message);
-    } else {
-      console.log(message);
+    
+    // ログを出力
+    const time = new Date().toLocaleTimeString();
+    const color = isError ? 'color:red;' : '';
+    debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+    
+    // コンソールにも出力（ローカル開発時のみ）
+    if (import.meta.env.MODE === 'development') {
+      if (isError) {
+        console.error(message);
+      } else {
+        console.log(message);
+      }
     }
   };
   
@@ -408,7 +418,6 @@ function App() {
   }
   
   addDebugLog(`[APP] Rendering main UI - phase: ${phase}, players: ${players.length}`);
-  console.log(`[APP] Rendering main UI - phase: ${phase}, players: ${players.length}`);
 
   const isAdmin = myself.id === adminId;
   const isQuestioner = myself.id === questionerId;
@@ -440,36 +449,19 @@ function App() {
 
   // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
   useEffect(() => {
-    console.log(`[APP] About to render (useEffect) - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
     addDebugLog(`[APP] About to render (useEffect) - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
-    console.log(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
     addDebugLog(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
   }, [phase]);
   
-  // デバッグ: phaseの値を確認（コンソールにも強制出力）
-  console.log(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
-  try {
-    addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
-  } catch (e) {
-    console.error('[APP] addDebugLog failed', e);
-  }
+  // デバッグ: phaseの値を確認（DOMに確実に出力）
+  addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
   
   // Lobbyコンポーネントをレンダリングするかどうかを決定
   const shouldRenderLobby = phase === 'LOBBY';
-  console.log(`[APP] shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
-  try {
-    addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
-  } catch (e) {
-    console.error('[APP] addDebugLog failed', e);
-  }
+  addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
   
   // デバッグ: レンダリング直前のログ
-  console.log(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
-  try {
-    addDebugLog(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
-  } catch (e) {
-    console.error('[APP] addDebugLog failed', e);
-  }
+  addDebugLog(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
   
   return (
     <div className="app-container">
@@ -482,8 +474,7 @@ function App() {
       </button>
 
       {shouldRenderLobby ? (() => {
-        console.log(`[APP] Rendering Lobby component now`);
-        addDebugLog(`[APP] Rendering Lobby component now`);
+        addDebugLog(`[APP] Rendering Lobby component now - shouldRenderLobby: ${shouldRenderLobby}`);
         return (
           <Lobby
             players={players}
@@ -497,8 +488,7 @@ function App() {
           />
         );
       })() : (() => {
-        console.log(`[APP] NOT rendering Lobby - phase: ${phase}`);
-        addDebugLog(`[APP] NOT rendering Lobby - phase: ${phase}`);
+        addDebugLog(`[APP] NOT rendering Lobby - phase: ${phase}, shouldRenderLobby: ${shouldRenderLobby}`);
         return null;
       })()}
       {phase === 'QUESTION_SELECTION' && (
