@@ -327,6 +327,7 @@ interface ResultScreenProps {
 
 const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE }: ResultScreenProps) => {
   const sortedPlayers = [...players].sort((a, b) => (a.getState('answer') as number) - (b.getState('answer') as number));
+  const myself = myPlayer();
 
   // Trigger confetti and sound if I got points
   useEffect(() => {
