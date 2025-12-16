@@ -232,6 +232,7 @@ async function initApp() {
       
       // StrictModeを一時的に無効化してデバッグ（問題解決後に戻す）
       // StrictModeはコンポーネントを2回レンダリングするため、デバッグが困難になる
+      // エラーバウンダリーでAppコンポーネントをラップ
       reactRoot.render(
         // <StrictMode>
           <App />

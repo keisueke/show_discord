@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useSounds } from './hooks/useSounds';
 import type { GameSettings, Question } from './types';
@@ -20,20 +20,95 @@ interface LobbyProps {
   scores: Record<string, number>;
 }
 
-const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores }: LobbyProps) => {
-  // デバッグログ出力ヘルパー関数（毎回debugDivを取得）
-  const addDebugLog = (message: string, isError = false) => {
-    const debugDiv = document.getElementById('debug-log');
-    if (debugDiv) {
-      const time = new Date().toLocaleTimeString();
-      const color = isError ? 'color:red;' : '';
-      debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
-      debugDiv.scrollTop = debugDiv.scrollHeight;
+// エラーバウンダリーコンポーネント（Discord環境でもエラーを捕捉）
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // エラーをDOMに直接書き込む（Discord内でも確認可能）
+    try {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;';
+      errorDiv.textContent = `[ERROR BOUNDARY] ${error.message} - ${errorInfo.componentStack?.slice(0, 200)}`;
+      
+      if (document.body) {
+        document.body.appendChild(errorDiv);
+      } else if (document.documentElement) {
+        document.documentElement.appendChild(errorDiv);
+      }
+    } catch (e) {
+      console.error('[ERROR BOUNDARY] Failed to display error:', e);
     }
-    if (isError) {
-      console.error(message);
-    } else {
-      console.log(message);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', color: 'white', textAlign: 'center' }}>
+          <h2>エラーが発生しました</h2>
+          <p>{this.state.error?.message}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores }: LobbyProps) => {
+  // デバッグログ出力ヘルパー関数（Appコンポーネントと同じ実装）
+  const addDebugLog = (message: string, isError = false) => {
+    try {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          addDebugLog(message, isError);
+        });
+        return;
+      }
+
+      let debugDiv = document.getElementById('debug-log');
+      if (!debugDiv) {
+        if (!document.body) {
+          const errorDiv = document.createElement('div');
+          errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;';
+          errorDiv.textContent = `ERROR: document.body is null - ${message}`;
+          if (document.documentElement) {
+            document.documentElement.appendChild(errorDiv);
+          }
+          return;
+        }
+        
+        debugDiv = document.createElement('div');
+        debugDiv.id = 'debug-log';
+        debugDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
+        document.body.appendChild(debugDiv);
+      }
+      
+      const logEntry = document.createElement('div');
+      const time = new Date().toLocaleTimeString();
+      logEntry.style.color = isError ? 'red' : '#0f0';
+      logEntry.textContent = `[${time}] ${message}`;
+      debugDiv.appendChild(logEntry);
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+    } catch (e) {
+      try {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;';
+        errorDiv.textContent = `[LOBBY] addDebugLog ERROR: ${e instanceof Error ? e.message : String(e)} - ${message}`;
+        if (document.body) {
+          document.body.appendChild(errorDiv);
+        } else if (document.documentElement) {
+          document.documentElement.appendChild(errorDiv);
+        }
+      } catch (finalError) {
+        console.error('[LOBBY] addDebugLog FATAL ERROR:', finalError);
+      }
     }
   };
   
@@ -314,22 +389,71 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
 function App() {
   // デバッグログ出力ヘルパー関数（毎回debugDivを取得・作成）
   // エラーハンドリングを強化し、エラーが発生した場合に確実に捕捉する
+  // Discordのiframe環境でも確実に動作するように、DOM操作のタイミングを調整
   const addDebugLog = (message: string, isError = false) => {
     try {
+      // DOMが完全に読み込まれていることを確認
+      if (document.readyState === 'loading') {
+        // DOMが読み込まれるまで待つ
+        document.addEventListener('DOMContentLoaded', () => {
+          addDebugLog(message, isError);
+        });
+        return;
+      }
+
       // debugDivを取得、存在しない場合は作成
       let debugDiv = document.getElementById('debug-log');
       if (!debugDiv) {
+        // document.bodyが存在することを確認
+        if (!document.body) {
+          // document.bodyが存在しない場合は、エラーを表示
+          const errorDiv = document.createElement('div');
+          errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;';
+          errorDiv.textContent = `ERROR: document.body is null - ${message}`;
+          // documentが存在する場合は、documentに直接追加
+          if (document.documentElement) {
+            document.documentElement.appendChild(errorDiv);
+          }
+          return;
+        }
+        
         debugDiv = document.createElement('div');
         debugDiv.id = 'debug-log';
         debugDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
-        document.body.appendChild(debugDiv);
+        
+        try {
+          document.body.appendChild(debugDiv);
+        } catch (appendError) {
+          // document.body.appendChildが失敗した場合は、エラーを表示
+          const errorDiv = document.createElement('div');
+          errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;';
+          errorDiv.textContent = `ERROR: Failed to append debugDiv - ${appendError} - ${message}`;
+          if (document.documentElement) {
+            document.documentElement.appendChild(errorDiv);
+          }
+          return;
+        }
       }
       
-      // ログを出力
+      // innerHTMLの代わりに、createElementを使用（より安全）
+      const logEntry = document.createElement('div');
       const time = new Date().toLocaleTimeString();
-      const color = isError ? 'color:red;' : '';
-      debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
-      debugDiv.scrollTop = debugDiv.scrollHeight;
+      logEntry.style.color = isError ? 'red' : '#0f0';
+      logEntry.textContent = `[${time}] ${message}`;
+      
+      try {
+        debugDiv.appendChild(logEntry);
+        debugDiv.scrollTop = debugDiv.scrollHeight;
+      } catch (appendError) {
+        // appendChildが失敗した場合は、エラーを表示
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;';
+        errorDiv.textContent = `ERROR: Failed to append logEntry - ${appendError} - ${message}`;
+        if (document.documentElement) {
+          document.documentElement.appendChild(errorDiv);
+        }
+        return;
+      }
       
       // コンソールにも出力（ローカル開発時のみ）
       if (import.meta.env.MODE === 'development') {
@@ -340,8 +464,21 @@ function App() {
         }
       }
     } catch (e) {
-      // エラーが発生した場合は、コンソールに出力
-      console.error('[APP] addDebugLog ERROR:', e, 'Original message:', message);
+      // エラーが発生した場合は、直接DOMに書き込む（最後の手段）
+      try {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:red;color:white;padding:10px;z-index:10000;font-family:monospace;';
+        errorDiv.textContent = `[APP] addDebugLog ERROR: ${e instanceof Error ? e.message : String(e)} - Original: ${message}`;
+        
+        if (document.body) {
+          document.body.appendChild(errorDiv);
+        } else if (document.documentElement) {
+          document.documentElement.appendChild(errorDiv);
+        }
+      } catch (finalError) {
+        // すべてのDOM操作が失敗した場合は、コンソールに出力（Discord内では見えないが、ローカル開発時には有効）
+        console.error('[APP] addDebugLog FATAL ERROR:', finalError, 'Original message:', message);
+      }
     }
   };
   
@@ -539,4 +676,11 @@ function App() {
   );
 }
 
-export default App;
+// Appコンポーネントをエラーバウンダリーでラップ
+const AppWithErrorBoundary = () => (
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
+
+export default AppWithErrorBoundary;
