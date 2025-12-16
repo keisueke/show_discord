@@ -294,10 +294,25 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
 };
 
 function App() {
+  console.log('[APP] Component rendering...');
+  
   const { playSE, playBGM, toggleMute, muted } = useSounds();
+  console.log('[APP] useSounds initialized');
 
   // Use new game engine
-  const engine = useGameEngine();
+  let engine;
+  try {
+    engine = useGameEngine();
+    console.log('[APP] useGameEngine initialized');
+  } catch (error) {
+    console.error('[APP] useGameEngine error:', error);
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>
+        <div>エラー: useGameEngineの初期化に失敗しました</div>
+      </div>
+    );
+  }
+  
   const {
     phase,
     settings,
@@ -319,6 +334,8 @@ function App() {
     nextRound
   } = engine;
 
+  console.log('[APP] Engine state extracted', { phase, playersCount: players.length, myselfExists: !!myself });
+
   // デバッグ: 現在の状態をログに出力
   useEffect(() => {
     console.log('[APP STATE]', {
@@ -331,14 +348,20 @@ function App() {
     });
   }, [phase, players.length, myself?.id, adminId, myself]);
 
-  // myselfがnullの場合は何も表示しない
+  // myselfがnullの場合はローディング表示
   if (!myself) {
+    console.log('[APP] myself is null, showing loading...');
     return (
-      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white', flexDirection: 'column' }}>
         <div>PlayroomKit初期化中...</div>
+        <div style={{ marginTop: '10px', fontSize: '12px', opacity: 0.7 }}>
+          players: {players.length}, phase: {phase}
+        </div>
       </div>
     );
   }
+  
+  console.log('[APP] Rendering main UI', { phase, playersCount: players.length });
 
   const isAdmin = myself.id === adminId;
   const isQuestioner = myself.id === questionerId;
