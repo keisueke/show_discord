@@ -64,38 +64,61 @@ async function initApp() {
     // エラーは完全に無視（ユーザーには表示しない）
   });
 
-  // PlayroomKitの初期化
-  await insertCoin({
-    skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
-    gameId: 'QuizGoodLine',
-    discord: isDiscordActivity
-  });
+  // PlayroomKitの初期化（タイムアウト付き）
+  try {
+    const insertCoinPromise = insertCoin({
+      skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
+      gameId: 'QuizGoodLine',
+      discord: isDiscordActivity
+    });
 
-  // Reactアプリのレンダリング（Discord SDKの初期化を待たない）
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('PlayroomKit initialization timeout')), 10000)
+    );
+
+    await Promise.race([insertCoinPromise, timeoutPromise]);
+  } catch (error) {
+    // PlayroomKitの初期化に失敗した場合でもアプリを表示
+    if (import.meta.env.MODE === 'development') {
+      console.warn('PlayroomKit initialization failed or timed out:', error);
+    }
+  }
+
+  // Reactアプリのレンダリング（初期化が完了していなくても表示）
+  const root = document.getElementById('root');
+  if (root) {
+    createRoot(root).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+  }
 }
 
+// 初期化を開始（エラーが発生してもアプリを表示）
 initApp().catch((error) => {
-  // エラー時も静かに処理（開発時のみコンソールに出力）
+  // エラーが発生した場合でもアプリを表示
   if (import.meta.env.MODE === 'development') {
-    console.error('App initialization failed:', error);
+    console.error('App initialization error:', error);
   }
-  // エラーが発生しても、可能な限りアプリを表示しようとする
-  try {
-    const root = document.getElementById('root');
-    if (root) {
+  
+  const root = document.getElementById('root');
+  if (root) {
+    // エラーが発生してもアプリを表示しようとする
+    try {
+      createRoot(root).render(
+        <StrictMode>
+          <App />
+        </StrictMode>,
+      );
+    } catch (e) {
+      // レンダリングも失敗した場合はエラーメッセージを表示
       root.innerHTML = `
         <div style="color: white; padding: 20px; text-align: center;">
-          <h2>読み込み中...</h2>
-          <p>アプリを初期化しています。しばらくお待ちください。</p>
+          <h2>初期化エラー</h2>
+          <p>アプリの初期化中にエラーが発生しました。ページを再読み込みしてください。</p>
         </div>
       `;
     }
-  } catch (e) {
-    // エラー表示も失敗した場合は何もしない
   }
 });
