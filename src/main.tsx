@@ -61,7 +61,16 @@ XMLHttpRequest.prototype.open = function(
   
   const convertedUrl = convertProxyUrl(urlString);
   
-  return originalXHROpen.call(this, method, convertedUrl, async, username, password);
+  // 引数を適切に処理
+  if (async !== undefined && username !== undefined && password !== undefined) {
+    return originalXHROpen.call(this, method, convertedUrl, async, username, password);
+  } else if (async !== undefined && username !== undefined) {
+    return originalXHROpen.call(this, method, convertedUrl, async, username);
+  } else if (async !== undefined) {
+    return originalXHROpen.call(this, method, convertedUrl, async);
+  } else {
+    return originalXHROpen.call(this, method, convertedUrl);
+  }
 };
 
 // Discord SDKの初期化とユーザー情報の取得
