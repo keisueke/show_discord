@@ -87,11 +87,48 @@ Discord Developer Portalの**Test Mode**を使用すると、Discord内で直接
 
 ---
 
-## 8. GitHub Pages へのデプロイについて
+## 8. Vercel へのデプロイについて（推奨）
 
-GitHub Pages を利用してアクティビティをホスティングすることが可能です。
+Vercel を利用してアクティビティをホスティングすることを推奨します。Discord Activities では `/.proxy/*` エンドポイントが必要であり、Vercel の Serverless Functions でこれを実現しています。
 
-### 設定手順
+### 重要: `/.proxy` エンドポイントについて
+
+Discord Embedded App SDK は、Discord内で動作する際に `/.proxy/*` 経由で Discord API にアクセスします。このプロジェクトでは、Vercel の Serverless Function (`api/proxy.ts`) でこのエンドポイントを実装しています。
+
+- **転送先**: Discord系ドメイン（`discord.com`, `discordapp.com` 等）のみに制限（SSRF防止）
+- **設定ファイル**: `vercel.json` で `/.proxy/:path*` → `/api/proxy/:path*` にルーティング
+
+### Vercel デプロイ手順
+
+1. **Vercel にプロジェクトをインポート**:
+   - [Vercel Dashboard](https://vercel.com/dashboard) にアクセス
+   - 「New Project」→ GitHub リポジトリを選択
+
+2. **環境変数の設定**:
+   - Vercel プロジェクトの **Settings** > **Environment Variables** で以下を設定:
+     - `VITE_DISCORD_CLIENT_ID`: Discord Application ID
+
+3. **デプロイ**:
+   - GitHub にプッシュすると自動デプロイされます
+   - または Vercel ダッシュボードから手動デプロイ
+
+4. **Discord Developer Portal の更新**:
+   - デプロイされたURL（例: `https://your-app.vercel.app/`）を、**URL Mappings** の Target URL に設定
+
+### 動作確認
+
+デプロイ後、以下のURLにアクセスして `/.proxy` が動作しているか確認できます:
+- `https://your-app.vercel.app/.proxy/test` → 404ではなくJSONレスポンスが返れば成功
+
+---
+
+## 9. GitHub Pages へのデプロイについて
+
+**注意**: GitHub Pages は静的ホスティングのため、`/.proxy/*` エンドポイントを実装できません。Discord Activities では Vercel の使用を推奨します。
+
+GitHub Pages を使用する場合は、別途プロキシサーバーを用意する必要があります。
+
+### 設定手順（参考）
 
 1. **`vite.config.ts` の確認**: `base: '/リポジトリ名/'` が設定されていることを確認してください（例: `/show_discord/`）。
 2. **デプロイコマンドの実行**:
@@ -104,3 +141,26 @@ GitHub Pages を利用してアクティビティをホスティングするこ�
    - Source として `gh-pages` ブランチを選択します。
 4. **Discord Developer Portal の更新**:
    - 公開されたページURL（例: `https://username.github.io/show_discord/`）を、**URL Mappings** の Target URL に設定します。
+
+---
+
+## トラブルシューティング
+
+### Discord内で「読み込み中...」のまま止まる
+
+**原因**: `/.proxy/*` が 404 を返している可能性があります。
+
+**確認方法**:
+1. ブラウザで `https://your-app.vercel.app/.proxy/test` にアクセス
+2. 404 HTML が表示される場合、プロキシが正しく設定されていません
+
+**解決方法**:
+- Vercel にデプロイしていることを確認
+- `api/proxy.ts` と `vercel.json` がリポジトリに含まれていることを確認
+- Vercel で再デプロイ
+
+### `SyntaxError: Unexpected token 'T' ... is not valid JSON`
+
+**原因**: Discord SDK が JSON を期待しているエンドポイントで、HTML（404ページ等）が返されています。
+
+**解決方法**: 上記と同様、`/.proxy/*` の設定を確認してください。
