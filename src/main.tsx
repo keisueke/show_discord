@@ -6,7 +6,19 @@ import { DiscordSDK } from '@discord/embedded-app-sdk'
 import './index.css'
 import App from './App.tsx'
 
-// デバッグ用：一時的に常にログを出力（問題解決後に削除）
+// デバッグログの表示状態を管理
+let debugLogVisible = false;
+
+// デバッグログの表示/非表示を切り替える関数
+export function toggleDebugLog() {
+  debugLogVisible = !debugLogVisible;
+  const debugDiv = document.getElementById('debug-log');
+  if (debugDiv) {
+    debugDiv.style.display = debugLogVisible ? 'block' : 'none';
+  }
+}
+
+// デバッグ用：ログを出力（表示状態に応じてDOMに表示）
 function debugLog(message: string, data?: any) {
   console.log(`[DEBUG] ${message}`, data || '');
   
@@ -14,14 +26,17 @@ function debugLog(message: string, data?: any) {
   const debugDiv = document.getElementById('debug-log') || (() => {
     const div = document.createElement('div');
     div.id = 'debug-log';
-    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;display:none;';
     document.body.appendChild(div);
     return div;
   })();
   
-  const time = new Date().toLocaleTimeString();
-  debugDiv.innerHTML += `<div>[${time}] ${message} ${data ? JSON.stringify(data).slice(0, 100) : ''}</div>`;
-  debugDiv.scrollTop = debugDiv.scrollHeight;
+  // 表示状態に応じてログを追加
+  if (debugLogVisible || debugDiv.children.length === 0) {
+    const time = new Date().toLocaleTimeString();
+    debugDiv.innerHTML += `<div>[${time}] ${message} ${data ? JSON.stringify(data).slice(0, 100) : ''}</div>`;
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+  }
 }
 
 // プロキシURLを変換するヘルパー関数
@@ -545,7 +560,7 @@ async function initApp() {
       // エラーバウンダリーでAppコンポーネントをラップ
       reactRoot.render(
         // <StrictMode>
-          <App />
+      <App />
         // </StrictMode>,
       );
       debugLog('React app rendered successfully');

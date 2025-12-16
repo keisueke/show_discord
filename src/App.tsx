@@ -654,15 +654,43 @@ function App() {
   // デバッグ: return文の前に確実にログを出力
   addDebugLog(`[APP] Before return - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
   
+  // デバッグモードの状態管理
+  const [debugMode, setDebugMode] = useState(false);
+
+  const handleToggleDebug = () => {
+    const newState = !debugMode;
+    setDebugMode(newState);
+    toggleDebugLog();
+  };
+
   return (
     <div className="app-container">
-      <button
-        className="mute-btn"
-        onClick={toggleMute}
-        style={{ position: 'fixed', top: 10, right: 10, zIndex: 1000, background: 'rgba(0,0,0,0.5)', padding: '5px 10px' }}
-      >
-        {muted ? '🔇' : '🔊'}
-      </button>
+      <div style={{ position: 'fixed', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: '10px' }}>
+        <button
+          className="mute-btn"
+          onClick={toggleMute}
+          style={{ background: 'rgba(0,0,0,0.5)', padding: '5px 10px', color: 'white', border: '1px solid #555', borderRadius: '4px', cursor: 'pointer' }}
+          title="音声のON/OFF"
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
+        <button
+          className="debug-btn"
+          onClick={handleToggleDebug}
+          style={{ 
+            background: debugMode ? 'rgba(0,150,0,0.7)' : 'rgba(0,0,0,0.5)', 
+            padding: '5px 10px', 
+            color: 'white', 
+            border: '1px solid #555', 
+            borderRadius: '4px', 
+            cursor: 'pointer',
+            fontSize: '12px'
+          }}
+          title="デバッグログの表示/非表示"
+        >
+          {debugMode ? '🐛 ON' : '🐛 OFF'}
+        </button>
+      </div>
 
       {shouldRenderLobby && (
         <Lobby
