@@ -127,6 +127,8 @@ async function setDiscordProfile() {
     // Discord Activity内では、認証済みのユーザー情報を取得
     // まず認証を試みる（既に認証済みの場合はスキップされる）
     let accessToken: string | null = null;
+    let authCode: string | null = null;
+    
     try {
       const authResult = await discordSdkInstance.commands.authorize({
         client_id: import.meta.env.VITE_DISCORD_CLIENT_ID || '',
@@ -137,9 +139,13 @@ async function setDiscordProfile() {
       });
       debugLog('Discord authorization successful', { code: authResult?.code ? 'received' : 'none' });
       
-      // 認証コードからアクセストークンを取得
-      // 注意: Discord Activity内では、認証コードをバックエンドでトークンと交換する必要がある
-      // しかし、Discord Activity内では、アクセストークンが直接利用可能な場合がある
+      // 認証コードを取得
+      if (authResult && 'code' in authResult) {
+        authCode = (authResult as any).code;
+        debugLog('Authorization code received');
+      }
+      
+      // アクセストークンが直接返される場合（稀なケース）
       if (authResult && 'access_token' in authResult) {
         accessToken = (authResult as any).access_token;
         debugLog('Access token received from authorize');
@@ -152,7 +158,31 @@ async function setDiscordProfile() {
     // Discord SDKからユーザー情報を取得
     let discordUser: any = null;
     
-    // 方法1: authenticate()メソッドを使用してアクセストークンを取得
+    // 方法1: 認証コードをバックエンドでトークンと交換
+    if (!accessToken && authCode) {
+      try {
+        const tokenResponse = await fetch('/api/discord-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ code: authCode }),
+        });
+        
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+          accessToken = tokenData.access_token;
+          debugLog('Access token received from backend exchange');
+        } else {
+          const errorText = await tokenResponse.text();
+          debugLog('Failed to exchange code for token', { status: tokenResponse.status, error: errorText });
+        }
+      } catch (e) {
+        debugLog('Failed to exchange code for token', e instanceof Error ? e.message : 'Unknown');
+      }
+    }
+    
+    // 方法2: authenticate()メソッドを使用してアクセストークンを取得（フォールバック）
     if (!accessToken) {
       try {
         const authenticateResult = await discordSdkInstance.commands.authenticate({
