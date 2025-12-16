@@ -25,6 +25,18 @@ export const useDiscord = () => {
 
     useEffect(() => {
         const setup = async () => {
+            // If running in top-level window (not iframe), likely local dev or github pages direct view
+            // Force mock mode immediately
+            if (window.parent === window) {
+                setContext(prev => ({
+                    ...prev,
+                    ready: true,
+                    authenticated: true,
+                    user: { id: "mock_user", username: "MockUser", discriminator: "0000" }
+                }));
+                return;
+            }
+
             try {
                 // Wait for ready with timeout for local dev
                 await Promise.race([
