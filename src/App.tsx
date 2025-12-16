@@ -257,9 +257,38 @@ interface QuestionScreenProps {
   currentRound: number;
   maxRounds: number;
   isDoubleScore: boolean;
+  timeLimit: number;
 }
 
-const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentRound, maxRounds, isDoubleScore }: QuestionScreenProps) => {
+const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentRound, maxRounds, isDoubleScore, timeLimit }: QuestionScreenProps) => {
+  const [remainingTime, setRemainingTime] = useState(timeLimit);
+  const [isTimeUp, setIsTimeUp] = useState(false);
+
+  // タイマーの実装
+  useEffect(() => {
+    if (myAnswer !== undefined || isTimeUp) {
+      return; // 既に回答済みまたは時間切れの場合はタイマーを停止
+    }
+
+    setRemainingTime(timeLimit); // タイマーをリセット
+
+    const interval = setInterval(() => {
+      setRemainingTime((prev) => {
+        if (prev <= 1) {
+          setIsTimeUp(true);
+          // 時間切れの場合は0を自動送信
+          setTimeout(() => {
+            onAnswer(0);
+          }, 100);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [question, myAnswer, isTimeUp, timeLimit, onAnswer]);
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -285,6 +314,9 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
     );
   }
 
+  const progressPercentage = (remainingTime / timeLimit) * 100;
+  const isWarning = remainingTime <= 10; // 残り10秒以下で警告表示
+
   return (
     <div className="screen question">
       <div className="round-info">Round {currentRound} / {maxRounds}</div>
@@ -295,6 +327,77 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
         ★ CHANCE! 得点2倍 ★
       </motion.div>}
       <div className="questioner-info">出題者: {questionerName}</div>
+      
+      {/* タイマー表示 */}
+      <div className="timer-container" style={{ 
+        marginBottom: '20px',
+        width: '100%',
+        maxWidth: '600px',
+        margin: '0 auto 20px'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '8px'
+        }}>
+          <span style={{ 
+            fontSize: '18px', 
+            fontWeight: 'bold',
+            color: isWarning ? '#ff4444' : '#fff'
+          }}>
+            残り時間: {remainingTime}秒
+          </span>
+          {isWarning && (
+            <motion.span
+              animate={{ opacity: [1, 0.5, 1] }}
+              transition={{ repeat: Infinity, duration: 1 }}
+              style={{ color: '#ff4444', fontSize: '16px' }}
+            >
+              ⚠️
+            </motion.span>
+          )}
+        </div>
+        {/* プログレスバー */}
+        <div style={{
+          width: '100%',
+          height: '8px',
+          backgroundColor: 'rgba(255, 255, 255, 0.2)',
+          borderRadius: '4px',
+          overflow: 'hidden',
+          position: 'relative'
+        }}>
+          <motion.div
+            initial={{ width: '100%' }}
+            animate={{ width: `${progressPercentage}%` }}
+            transition={{ duration: 1, ease: 'linear' }}
+            style={{
+              height: '100%',
+              backgroundColor: isWarning ? '#ff4444' : '#4CAF50',
+              borderRadius: '4px',
+              boxShadow: isWarning ? '0 0 10px rgba(255, 68, 68, 0.5)' : 'none'
+            }}
+          />
+          {remainingTime === 0 && (
+            <motion.div
+              initial={{ scale: 1.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                color: '#fff',
+                fontWeight: 'bold',
+                fontSize: '12px'
+              }}
+            >
+              時間切れ！
+            </motion.div>
+          )}
+        </div>
+      </div>
+
       <h2>問題</h2>
       {question && (
         <>
@@ -303,8 +406,26 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
         </>
       )}
       <form onSubmit={handleSubmit}>
-        <input name="answer" type="number" placeholder="数字を入力" />
-        <button type="submit">回答する</button>
+        <input 
+          name="answer" 
+          type="number" 
+          placeholder="数字を入力" 
+          disabled={isTimeUp}
+          style={{ 
+            opacity: isTimeUp ? 0.5 : 1,
+            cursor: isTimeUp ? 'not-allowed' : 'text'
+          }}
+        />
+        <button 
+          type="submit" 
+          disabled={isTimeUp}
+          style={{ 
+            opacity: isTimeUp ? 0.5 : 1,
+            cursor: isTimeUp ? 'not-allowed' : 'pointer'
+          }}
+        >
+          {isTimeUp ? '時間切れ' : '回答する'}
+        </button>
       </form>
     </div>
   );
