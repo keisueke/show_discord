@@ -75,6 +75,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 }
 
 const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores, onRefresh }: LobbyProps) => {
+  // タブの状態管理
+  const [activeTab, setActiveTab] = useState<'participants' | 'settings' | 'howto'>('participants');
+  
   // デバッグログ出力ヘルパー関数（Appコンポーネントと同じ実装）
   const addDebugLog = (message: string, isError = false) => {
     try {
@@ -139,116 +142,209 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
 
   return (
     <div className="screen lobby" style={{ position: 'relative', zIndex: 1 }}>
-      <h1>クイズいい線いきましょう！</h1>
+      <h1>クイズ！ど真ん中</h1>
 
-      <div className="settings-panel">
-        <h3>ゲーム設定 {isAdmin ? '(編集可)' : '(閲覧のみ)'}</h3>
-        <div className="setting-item">
-          <label>最大ラウンド数 (周):</label>
-          <input
-            type="number"
-            name="maxRounds"
-            value={settings.maxRounds}
-            onChange={handleChange}
-            disabled={!isAdmin}
-            min={1}
-            max={5}
-          />
-        </div>
-        <div className="setting-item">
-          <label>制限時間 (秒):</label>
-          <input
-            type="number"
-            name="timeLimit"
-            value={settings.timeLimit}
-            onChange={handleChange}
-            disabled={!isAdmin}
-            min={10}
-            max={300}
-          />
-        </div>
+      {/* タブヘッダー */}
+      <div className="lobby-tabs">
+        <button
+          className={`tab-button ${activeTab === 'participants' ? 'active' : ''}`}
+          onClick={() => setActiveTab('participants')}
+        >
+          参加者
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          設定
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'howto' ? 'active' : ''}`}
+          onClick={() => setActiveTab('howto')}
+        >
+          遊び方
+        </button>
       </div>
 
-      <div className="players-list">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-          <h3 style={{ margin: 0 }}>参加者</h3>
-          {onRefresh && (
-            <button
-              onClick={onRefresh}
-              className="btn-refresh"
-              title="参加者情報を更新"
-              style={{
-                background: 'rgba(100, 100, 100, 0.5)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '4px',
-                color: '#fff',
-                padding: '0.3rem 0.6rem',
-                fontSize: '0.9em',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem'
-              }}
-            >
-              🔄 更新
-            </button>
-          )}
-        </div>
-        {players.map((p) => {
-          // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
-          const isMyself = p.id === myself.id;
-          const discordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
-          const profile = p.getProfile();
-          const displayName = discordProfile?.name || profile.name;
-          const displayColor = discordProfile?.color || profile.color;
-          const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#ccc';
-          
-          // アバター画像を取得（Discord情報またはPlayroomKitプロファイルから）
-          const avatarUrl = discordProfile?.photo || profile.photo || null;
-          
-          return (
-            <div key={p.id} className="player-badge" style={{ backgroundColor: colorHex }}>
-              <span className="player-info">
-                {avatarUrl ? (
-                  <img 
-                    src={avatarUrl} 
-                    alt={displayName}
-                    className="player-avatar"
-                    onError={(e) => {
-                      // 画像読み込みエラー時は非表示
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="player-avatar-placeholder">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span className="player-details">
-                  {p.id === adminId && <span className="admin-badge">👑</span>}
-                  <span className="player-name-text">{displayName}</span>
-                  {p.id === myself.id && <span className="you-badge">(You)</span>}
-                </span>
-                <span className="score-badge">Pts: {scores[p.id] || 0}</span>
-              </span>
-              {isAdmin && p.id !== myself.id && (
+      {/* タブコンテンツ */}
+      {activeTab === 'participants' && (
+        <div className="tab-content">
+          <div className="players-list">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <h3 style={{ margin: 0 }}>参加者</h3>
+              {onRefresh && (
                 <button
-                  className="btn-small"
-                  onClick={() => onTransferAdmin(p.id)}
-                  title="管理者を譲渡"
+                  onClick={onRefresh}
+                  className="btn-refresh"
+                  title="参加者情報を更新"
+                  style={{
+                    background: 'rgba(100, 100, 100, 0.5)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '4px',
+                    color: '#fff',
+                    padding: '0.3rem 0.6rem',
+                    fontSize: '0.9em',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem'
+                  }}
                 >
-                  譲渡
+                  🔄 更新
                 </button>
               )}
             </div>
-          );
-        })}
-      </div>
+            {players.map((p) => {
+              // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
+              const isMyself = p.id === myself.id;
+              const discordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
+              const profile = p.getProfile();
+              const displayName = discordProfile?.name || profile.name;
+              const displayColor = discordProfile?.color || profile.color;
+              const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#ccc';
+              
+              // アバター画像を取得（Discord情報またはPlayroomKitプロファイルから）
+              const avatarUrl = discordProfile?.photo || profile.photo || null;
+              
+              return (
+                <div key={p.id} className="player-badge" style={{ backgroundColor: colorHex }}>
+                  <span className="player-info">
+                    {avatarUrl ? (
+                      <img 
+                        src={avatarUrl} 
+                        alt={displayName}
+                        className="player-avatar"
+                        onError={(e) => {
+                          // 画像読み込みエラー時は非表示
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="player-avatar-placeholder">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="player-details">
+                      {p.id === adminId && <span className="admin-badge">👑</span>}
+                      <span className="player-name-text">{displayName}</span>
+                      {p.id === myself.id && <span className="you-badge">(You)</span>}
+                    </span>
+                    <span className="score-badge">Pts: {scores[p.id] || 0}</span>
+                  </span>
+                  {isAdmin && p.id !== myself.id && (
+                    <button
+                      className="btn-small"
+                      onClick={() => onTransferAdmin(p.id)}
+                      title="管理者を譲渡"
+                    >
+                      譲渡
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-      {isAdmin ? (
-        <button onClick={onStart} className="btn-start">ゲーム開始</button>
-      ) : (
-        <div className="waiting-message">ホストがゲームを開始するのを待っています...</div>
+      {activeTab === 'settings' && (
+        <div className="tab-content">
+          <div className="settings-panel">
+            <h3>ゲーム設定 {isAdmin ? '(編集可)' : '(閲覧のみ)'}</h3>
+            <div className="setting-item">
+              <label>最大ラウンド数 (周):</label>
+              <input
+                type="number"
+                name="maxRounds"
+                value={settings.maxRounds}
+                onChange={handleChange}
+                disabled={!isAdmin}
+                min={1}
+                max={5}
+              />
+            </div>
+            <div className="setting-item">
+              <label>制限時間 (秒):</label>
+              <input
+                type="number"
+                name="timeLimit"
+                value={settings.timeLimit}
+                onChange={handleChange}
+                disabled={!isAdmin}
+                min={10}
+                max={300}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'howto' && (
+        <div className="tab-content">
+          <div className="howto-panel">
+            <h3>遊び方</h3>
+            <div className="howto-section">
+              <h4>📖 ゲームの概要</h4>
+              <p>クイズの正解は、全員の回答の<strong>「真ん中」</strong>になります！</p>
+              <p>誰も正解を知らないような問題が出題され、「いいセン行っているか？」が勝負の決め手です。</p>
+            </div>
+            
+            <div className="howto-section">
+              <h4>🎮 ゲームの流れ</h4>
+              <ol>
+                <li><strong>出題者</strong>が問題を選びます</li>
+                <li>全員が<strong>数字で回答</strong>します（制限時間内）</li>
+                <li>全員の回答を<strong>公開</strong>します</li>
+                <li>数字を<strong>大きい順に並べ</strong>、<strong>真ん中</strong>が正解です</li>
+                <li><strong>得点計算</strong>をして、次のラウンドへ</li>
+              </ol>
+            </div>
+
+            <div className="howto-section">
+              <h4>🎯 真ん中の決め方</h4>
+              <ul>
+                <li><strong>回答の種類が奇数の場合</strong>：ちょうど真ん中の順位の数字が正解</li>
+                <li><strong>回答の種類が偶数の場合</strong>：真ん中の順位のうち、数字が大きい方が正解</li>
+                <li><strong>全員が同じ数字の場合</strong>：全員正解！</li>
+              </ul>
+            </div>
+
+            <div className="howto-section">
+              <h4>⭐ 得点の計算</h4>
+              <ul>
+                <li><strong>正解した人</strong>：+100点</li>
+                <li><strong>一番大きい数字を出した人</strong>：-50点</li>
+                <li><strong>一番小さい数字を出した人</strong>：-50点</li>
+                <li><strong>2倍ラウンド</strong>：正解時の得点が2倍になります！</li>
+              </ul>
+            </div>
+
+            <div className="howto-section">
+              <h4>💡 コツ</h4>
+              <ul>
+                <li>誰も正解を知らないような問題が面白い</li>
+                <li>極端すぎる数字（0や天文学的数字）は避けよう</li>
+                <li>みんなの回答を予測して、真ん中を狙おう！</li>
+              </ul>
+            </div>
+
+            <div className="howto-section">
+              <h4>🏆 ゲームの終了</h4>
+              <p>設定したラウンド数が終わったら、<strong>最も得点が高いプレイヤー</strong>の勝ちです！</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ゲーム開始ボタン（全タブ共通） */}
+      {activeTab !== 'howto' && (
+        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+          {isAdmin ? (
+            <button onClick={onStart} className="btn-start">ゲーム開始</button>
+          ) : (
+            <div className="waiting-message">ホストがゲームを開始するのを待っています...</div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -365,68 +461,34 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
       <div className="questioner-info">出題者: {questionerName}</div>
       
       {/* タイマー表示 */}
-      <div className="timer-container" style={{ 
-        marginBottom: '20px',
-        width: '100%',
-        maxWidth: '600px',
-        margin: '0 auto 20px'
-      }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '8px'
-        }}>
-          <span style={{ 
-            fontSize: '18px', 
-            fontWeight: 'bold',
-            color: isWarning ? '#ff4444' : '#fff'
-          }}>
+      <div className="timer-container">
+        <div className="timer-header">
+          <span className={`timer-text ${isWarning ? 'warning' : ''}`}>
             残り時間: {remainingTime}秒
           </span>
           {isWarning && (
             <motion.span
               animate={{ opacity: [1, 0.5, 1] }}
               transition={{ repeat: Infinity, duration: 1 }}
-              style={{ color: '#ff4444', fontSize: '16px' }}
+              className="timer-warning-icon"
             >
               ⚠️
             </motion.span>
           )}
         </div>
         {/* プログレスバー */}
-        <div style={{
-          width: '100%',
-          height: '8px',
-          backgroundColor: 'rgba(255, 255, 255, 0.2)',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          position: 'relative'
-        }}>
+        <div className="progress-bar-container">
           <motion.div
+            className={`progress-bar ${isWarning ? 'warning' : ''}`}
             initial={{ width: '100%' }}
             animate={{ width: `${progressPercentage}%` }}
-            transition={{ duration: 1, ease: 'linear' }}
-            style={{
-              height: '100%',
-              backgroundColor: isWarning ? '#ff4444' : '#4CAF50',
-              borderRadius: '4px',
-              boxShadow: isWarning ? '0 0 10px rgba(255, 68, 68, 0.5)' : 'none'
-            }}
+            transition={{ duration: 0.5, ease: 'linear' }}
           />
           {remainingTime === 0 && (
             <motion.div
+              className="time-up-message"
               initial={{ scale: 1.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                color: '#fff',
-                fontWeight: 'bold',
-                fontSize: '12px'
-              }}
             >
               時間切れ！
             </motion.div>
@@ -800,7 +862,7 @@ function App() {
     // 初回は即座に更新、その後は5秒ごとに更新
     const interval = setInterval(() => {
       setLobbyUpdateCounter(prev => prev + 1);
-    }, 5000);
+    }, 30000);
     
     return () => clearInterval(interval);
   }, [phase, myself]);
