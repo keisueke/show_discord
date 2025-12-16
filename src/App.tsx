@@ -1,6 +1,10 @@
+import { useEffect } from 'react';
 import { useGameEngine } from './hooks/useGameEngine';
+import { useSounds } from './hooks/useSounds';
 import type { GameSettings, Question } from './types';
-import type { PlayerState as PlayroomPlayer } from 'playroomkit';
+import { type PlayerState as PlayroomPlayer, myPlayer } from 'playroomkit';
+import { motion } from 'framer-motion';
+import confetti from 'canvas-confetti';
 import './App.css';
 
 // UI Components adapted for Playroom Player objects
@@ -13,9 +17,10 @@ interface LobbyProps {
   settings: GameSettings;
   onUpdateSettings: (settings: GameSettings) => void;
   onTransferAdmin: (newAdminId: string) => void;
+  scores: Record<string, number>;
 }
 
-const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin }: LobbyProps) => {
+const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores }: LobbyProps) => {
   const isAdmin = myself.id === adminId;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +70,7 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
             <span className="player-info">
               {p.id === adminId && <span className="admin-badge">👑</span>}
               {p.getProfile().name} {p.id === myself.id && '(You)'}
+              <span className="score-badge">Pts: {scores[p.id] || 0}</span>
             </span>
             {isAdmin && p.id !== myself.id && (
               <button
@@ -128,7 +134,17 @@ interface QuestionScreenProps {
   maxRounds: number;
 }
 
-const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentRound, maxRounds }: QuestionScreenProps) => {
+interface QuestionScreenProps {
+  question: Question | null;
+  questionerName: string;
+  onAnswer: (val: number) => void;
+  myAnswer: number | undefined;
+  currentRound: number;
+  maxRounds: number;
+  isDoubleScore: boolean;
+}
+
+const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentRound, maxRounds, isDoubleScore }: QuestionScreenProps) => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -141,8 +157,12 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
     return (
       <div className="screen wait">
         <div className="question-summary">
-          <div className="category-label">[{question?.category}]</div>
-          <div className="question-text-small">{question?.text}</div>
+          {question && (
+            <>
+              <div className="category-label">[{question.category}]</div>
+              <div className="question-text-small">{question.text}</div>
+            </>
+          )}
         </div>
         <h2>回答完了！</h2>
         <p>他のプレイヤーを待っています...</p>
@@ -153,6 +173,12 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
   return (
     <div className="screen question">
       <div className="round-info">Round {currentRound} / {maxRounds}</div>
+      {isDoubleScore && <motion.div
+        initial={{ scale: 0 }} animate={{ scale: 1 }}
+        className="double-score-badge"
+      >
+        ★ CHANCE! 得点2倍 ★
+      </motion.div>}
       <div className="questioner-info">出題者: {questionerName}</div>
       <h2>問題</h2>
       {question && (
@@ -176,39 +202,100 @@ const WaitScreen = () => (
 );
 
 interface ResultScreenProps {
-  result: { median: number };
+  result: { median: number; scoreChanges?: Record<string, number> };
   players: PlayroomPlayer[];
   onNext: () => void;
   isAdmin: boolean;
+  isDoubleScore: boolean;
+  playSE: (name: any) => void;
 }
 
-const ResultScreen = ({ result, players, onNext, isAdmin }: ResultScreenProps) => {
+const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE }: ResultScreenProps) => {
   const sortedPlayers = [...players].sort((a, b) => (a.getState('answer') as number) - (b.getState('answer') as number));
 
+  // Trigger confetti and sound if I got points
+  useEffect(() => {
+    const myId = myPlayer().id;
+    const myScoreChange = result.scoreChanges?.[myId] || 0;
+    if (myScoreChange > 0) {
+      playSE('se_cheer');
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    }
+  }, [result, playSE]);
+
   return (
-    <div className="screen result">
+    <motion.div
+      className="screen result"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
       <h2>結果発表</h2>
-      <div className="good-line">いい線（中央値）: {result.median}</div>
+      {isDoubleScore && <div className="double-score-label">★ 倍率2倍ラウンド ★</div>}
+
+      <div className="good-line-container">
+        <div className="good-line-label">いい線（中央値）</div>
+        <motion.div
+          className="good-line-value"
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1.2, opacity: 1 }}
+          transition={{ type: "spring", delay: 0.5 }}
+        >
+          {result.median}
+        </motion.div>
+      </div>
+
       <ul className="answers-list">
-        {sortedPlayers.map((p) => {
+        {sortedPlayers.map((p, i) => {
           const val = p.getState('answer') as number;
+          const scoreChange = result.scoreChanges?.[p.id] || 0;
+          const isWinner = scoreChange > 0;
+
           return (
-            <li key={p.id} className={val === result.median ? 'highlight' : ''}>
-              <span style={{ color: (p.getProfile().color as any).hex || '#000' }}>{p.getProfile().name}</span>: {val}
-            </li>
+            <motion.li
+              key={p.id}
+              className={`result-item ${val === result.median ? 'highlight' : ''}`}
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 1 + (i * 0.2) }}
+            >
+              <div className="player-info-result">
+                <span className="player-name" style={{ color: (p.getProfile().color as any).hex || '#000' }}>
+                  {p.getProfile().name}
+                </span>
+                <span className="player-answer">{val}</span>
+              </div>
+
+              {scoreChange !== 0 && (
+                <motion.div
+                  className={`score-change ${isWinner ? 'plus' : 'minus'}`}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 2 + (i * 0.1) }}
+                >
+                  {scoreChange > 0 ? '+' : ''}{scoreChange}pt
+                </motion.div>
+              )}
+            </motion.li>
           );
         })}
       </ul>
+
       {isAdmin ? (
-        <button onClick={onNext}>次の問題へ</button>
+        <button onClick={onNext} className="btn-next">次の問題へ</button>
       ) : (
-        <div>ホストが次へ進むのを待っています...</div>
+        <div className="waiting-next">ホストが次へ進むのを待っています...</div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
 function App() {
+  const { playSE, playBGM, toggleMute, muted } = useSounds();
+
   // Use new game engine
   const engine = useGameEngine();
   const {
@@ -222,6 +309,8 @@ function App() {
     currentQuestion,
     result,
     currentRound,
+    scores, // used implied
+    isDoubleScore,
     startGame,
     updateSettings,
     transferAdmin,
@@ -239,8 +328,36 @@ function App() {
 
   const myAnswer = myself.getState('answer') as number | undefined;
 
+  // Sound Management
+  useEffect(() => {
+    if (phase === 'LOBBY') {
+      playBGM('bgm_lobby');
+    } else {
+      playBGM('bgm_game');
+    }
+
+    if (phase === 'QUESTION_SELECTION') {
+      // Maybe a specific sound?
+    }
+    if (phase === 'QUESTION') {
+      playSE('se_question');
+    }
+    if (phase === 'REVEAL') {
+      playSE('se_result');
+    }
+  }, [phase, playBGM, playSE]);
+
+
   return (
     <div className="app-container">
+      <button
+        className="mute-btn"
+        onClick={toggleMute}
+        style={{ position: 'fixed', top: 10, right: 10, zIndex: 1000, background: 'rgba(0,0,0,0.5)', padding: '5px 10px' }}
+      >
+        {muted ? '🔇' : '🔊'}
+      </button>
+
       {phase === 'LOBBY' && (
         <Lobby
           players={players}
@@ -250,6 +367,7 @@ function App() {
           onStart={startGame}
           onUpdateSettings={updateSettings}
           onTransferAdmin={transferAdmin}
+          scores={scores}
         />
       )}
       {phase === 'QUESTION_SELECTION' && (
@@ -268,6 +386,7 @@ function App() {
           myAnswer={myAnswer}
           currentRound={currentRound}
           maxRounds={settings.maxRounds}
+          isDoubleScore={isDoubleScore}
         />
       )}
       {phase === 'ANSWERING' && (
@@ -279,6 +398,8 @@ function App() {
           players={players}
           onNext={nextRound}
           isAdmin={isAdmin}
+          isDoubleScore={isDoubleScore}
+          playSE={playSE}
         />
       )}
     </div>

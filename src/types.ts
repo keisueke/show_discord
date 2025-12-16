@@ -22,11 +22,12 @@ export interface GameSettings {
 export interface GameState {
   phase: Phase;
   players: Record<string, Player>;
-  playerOrder: string[]; // IDs in order of turns
-  questionerId: string | null;
-  questionCandidates: Question[]; // Candidates for the questioner to choose from
-  currentQuestion: Question | null;
-  answers: Record<string, number>;
+  playerOrder: string[]; // Order of players for turns
+  questionerId: string | null; // ID of the current questioner
+  questionCandidates: Question[]; // Two questions to choose from
+  currentQuestion: Question | null; // Selected question
+  scores: Record<string, number>; // Player scores
+  isDoubleScore: boolean; // Chance round flag
   result?: {
     median: number;
     winnerId?: string; // Winner of the round

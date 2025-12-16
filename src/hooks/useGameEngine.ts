@@ -20,6 +20,8 @@ export const useGameEngine = () => {
     // Result State
     const [result, setResult] = useMultiplayerState<any>('result', null);
     const [currentRound, setCurrentRound] = useMultiplayerState<number>('currentRound', 0);
+    const [scores, setScores] = useMultiplayerState<Record<string, number>>('scores', {});
+    const [isDoubleScore, setIsDoubleScore] = useMultiplayerState<boolean>('isDoubleScore', false);
 
     // ----------------------
     // Player List & Local
@@ -72,6 +74,15 @@ export const useGameEngine = () => {
 
     }, [players, isHost()]); // Re-run when players list changes
 
+    // Update Scores Helper
+    const updateScores = (changes: Record<string, number>) => {
+        const newScores = { ...scores };
+        Object.entries(changes).forEach(([pid, change]) => {
+            newScores[pid] = (newScores[pid] || 0) + change;
+        });
+        setScores(newScores);
+    };
+
     // Check Answers Logic (Host Only)
     useEffect(() => {
         if (!isHost() || phase !== 'QUESTION') return;
@@ -84,13 +95,68 @@ export const useGameEngine = () => {
                 val: p.getState('answer') as number
             })).sort((a, b) => a.val - b.val);
 
+            // Calculate Median
             const mid = Math.floor(answerValues.length / 2);
             let median = 0;
             if (answerValues.length > 0) {
                 median = answerValues.length % 2 !== 0 ? answerValues[mid].val : (answerValues[mid - 1].val + answerValues[mid].val) / 2;
             }
 
-            setResult({ median });
+            // Scoring Logic
+            const scoreChanges: Record<string, number> = {};
+            const multiplier = isDoubleScore ? 2 : 1;
+
+            if (answerValues.length >= 2) {
+                // 1. Calculate Distances
+                const withDist = answerValues.map(a => ({ ...a, dist: Math.abs(a.val - median) }));
+                const minDist = Math.min(...withDist.map(a => a.dist));
+
+                // 2. Find Winners (Closest to median)
+                // Bonus for exact match? Plan said +100 for closest.
+                // Let's stick to: Closest (+100 * multiplier).
+                withDist.filter(a => a.dist === minDist).forEach(winner => {
+                    scoreChanges[winner.id] = 100 * multiplier;
+                });
+
+                // 3. Find Losers (Max/Min) - Only if 3+ players
+                if (players.length >= 3) {
+                    const maxVal = answerValues[answerValues.length - 1].val;
+                    const minVal = answerValues[0].val;
+
+                    // Exemption: If Max == Median or Min == Median (i.e., everyone voted same), or Max == Min
+                    const isFlat = maxVal === minVal;
+
+                    if (!isFlat) {
+                        // Max Punishment
+                        if (maxVal !== median) {
+                            answerValues.filter(a => a.val === maxVal).forEach(p => {
+                                // If they are also a winner (closest), skip penalty?
+                                // Logic: If closest, they get +100. If they are also max (e.g. Median=50, Val=51 is closest & max),
+                                // typically they still get penalty or not?
+                                // "Good Line" usually penalizes pure max/min.
+                                // If you are closest AND max/min, usually you are safe?
+                                // Let's follow simple rule: Max/Min always penalty UNLESS it is the Median.
+                                if (Math.abs(p.val - median) !== minDist) {
+                                    scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
+                                }
+                            });
+                        }
+                        // Min Punishment
+                        if (minVal !== median) {
+                            answerValues.filter(a => a.val === minVal).forEach(p => {
+                                if (Math.abs(p.val - median) !== minDist) {
+                                    scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Apply scores
+            updateScores(scoreChanges);
+
+            setResult({ median, scoreChanges });
             setPhase('REVEAL');
         }
     }, [players, phase]);
@@ -107,6 +173,13 @@ export const useGameEngine = () => {
         setQuestionerId(firstQuestioner);
         setQuestionCandidates(getRandomCandidates());
         setCurrentRound(1);
+
+        // Init scores
+        const initialScores: Record<string, number> = {};
+        playerOrder.forEach(id => initialScores[id] = 0);
+        setScores(initialScores);
+        setIsDoubleScore(Math.random() < 0.2); // 20% Initial chance? Or always normal first? Let's random.
+
         RPC.call('resetAnswers', {}, RPC.Mode.ALL);
     };
 
@@ -151,6 +224,10 @@ export const useGameEngine = () => {
             setCurrentRound(nextR);
             setResult(null);
             setCurrentQuestion(null);
+
+            // Double Score Chance (20%)
+            setIsDoubleScore(Math.random() < 0.2);
+
             RPC.call('resetAnswers', {}, RPC.Mode.ALL);
         }
     };
@@ -172,6 +249,8 @@ export const useGameEngine = () => {
         currentQuestion,
         result,
         currentRound,
+        scores,
+        isDoubleScore,
         players,
         myself,
 
