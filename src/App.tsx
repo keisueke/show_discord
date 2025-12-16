@@ -575,9 +575,11 @@ function App() {
 
   const myAnswer = myself.getState('answer') as number | undefined;
   addDebugLog(`[APP] myAnswer: ${myAnswer}`);
+  addDebugLog(`[APP] About to define Sound Management useEffect`);
 
   // Sound Management
   useEffect(() => {
+    addDebugLog(`[APP] Sound Management useEffect executed - phase: ${phase}`);
     if (phase === 'LOBBY') {
       playBGM('bgm_lobby');
     } else {
@@ -595,12 +597,14 @@ function App() {
     }
   }, [phase, playBGM, playSE]);
 
+  addDebugLog(`[APP] Sound Management useEffect defined`);
+  addDebugLog(`[APP] About to calculate shouldRenderLobby`);
+
   // Lobbyコンポーネントをレンダリングするかどうかを決定
   const shouldRenderLobby = phase === 'LOBBY';
   addDebugLog(`[APP] shouldRenderLobby calculated: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
   
-  // デバッグ: return文の前に確実にログを出力
-  addDebugLog(`[APP] Before return - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
+  addDebugLog(`[APP] About to define Render complete useEffect`);
   
   // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
   // レンダリング後に確実にログが表示されるようにする
@@ -611,12 +615,18 @@ function App() {
     addDebugLog(`[APP] DOM check - lobby exists: ${!!document.querySelector('.lobby')}`);
   }, [phase, shouldRenderLobby]);
   
+  addDebugLog(`[APP] Render complete useEffect defined`);
+  addDebugLog(`[APP] About to check shouldRenderLobby condition`);
+  
   // Lobbyコンポーネントを事前にログ出力してからレンダリング
   if (shouldRenderLobby) {
     addDebugLog(`[APP] Rendering Lobby component - phase: ${phase}`);
   } else {
     addDebugLog(`[APP] NOT rendering Lobby - phase: ${phase}`);
   }
+  
+  // デバッグ: return文の前に確実にログを出力
+  addDebugLog(`[APP] Before return - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
   
   return (
     <div className="app-container">
