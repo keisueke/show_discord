@@ -313,29 +313,35 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
 
 function App() {
   // デバッグログ出力ヘルパー関数（毎回debugDivを取得・作成）
+  // エラーハンドリングを強化し、エラーが発生した場合に確実に捕捉する
   const addDebugLog = (message: string, isError = false) => {
-    // debugDivを取得、存在しない場合は作成
-    let debugDiv = document.getElementById('debug-log');
-    if (!debugDiv) {
-      debugDiv = document.createElement('div');
-      debugDiv.id = 'debug-log';
-      debugDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
-      document.body.appendChild(debugDiv);
-    }
-    
-    // ログを出力
-    const time = new Date().toLocaleTimeString();
-    const color = isError ? 'color:red;' : '';
-    debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
-    debugDiv.scrollTop = debugDiv.scrollHeight;
-    
-    // コンソールにも出力（ローカル開発時のみ）
-    if (import.meta.env.MODE === 'development') {
-      if (isError) {
-        console.error(message);
-      } else {
-        console.log(message);
+    try {
+      // debugDivを取得、存在しない場合は作成
+      let debugDiv = document.getElementById('debug-log');
+      if (!debugDiv) {
+        debugDiv = document.createElement('div');
+        debugDiv.id = 'debug-log';
+        debugDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
+        document.body.appendChild(debugDiv);
       }
+      
+      // ログを出力
+      const time = new Date().toLocaleTimeString();
+      const color = isError ? 'color:red;' : '';
+      debugDiv.innerHTML += `<div style="${color}">[${time}] ${message}</div>`;
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+      
+      // コンソールにも出力（ローカル開発時のみ）
+      if (import.meta.env.MODE === 'development') {
+        if (isError) {
+          console.error(message);
+        } else {
+          console.log(message);
+        }
+      }
+    } catch (e) {
+      // エラーが発生した場合は、コンソールに出力
+      console.error('[APP] addDebugLog ERROR:', e, 'Original message:', message);
     }
   };
   
@@ -447,46 +453,26 @@ function App() {
     }
   }, [phase, playBGM, playSE]);
 
-  // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
-  useEffect(() => {
-    addDebugLog(`[APP] About to render (useEffect) - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
-    addDebugLog(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
-  }, [phase]);
-  
-  // デバッグ: phaseの値を確認（DOMに確実に出力）
-  // 複数回呼び出して確実にログを出力
-  try {
-    addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
-  } catch (e) {
-    // エラーが発生した場合は、直接DOMに書き込む
-    const debugDiv = document.getElementById('debug-log') || document.createElement('div');
-    if (!debugDiv.id) {
-      debugDiv.id = 'debug-log';
-      debugDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
-      document.body.appendChild(debugDiv);
-    }
-    debugDiv.innerHTML += `<div style="color:red;">[${new Date().toLocaleTimeString()}] [APP] addDebugLog ERROR: ${e}</div>`;
-  }
-  
   // Lobbyコンポーネントをレンダリングするかどうかを決定
   const shouldRenderLobby = phase === 'LOBBY';
-  try {
-    addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
-  } catch (e) {
-    const debugDiv = document.getElementById('debug-log');
-    if (debugDiv) {
-      debugDiv.innerHTML += `<div style="color:red;">[${new Date().toLocaleTimeString()}] [APP] shouldRenderLobby ERROR: ${e}</div>`;
-    }
-  }
   
-  // デバッグ: レンダリング直前のログ
-  try {
-    addDebugLog(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
-  } catch (e) {
-    const debugDiv = document.getElementById('debug-log');
-    if (debugDiv) {
-      debugDiv.innerHTML += `<div style="color:red;">[${new Date().toLocaleTimeString()}] [APP] About to return JSX ERROR: ${e}</div>`;
-    }
+  // デバッグ: return文の前に確実にログを出力
+  addDebugLog(`[APP] Before return - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
+  
+  // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
+  // レンダリング後に確実にログが表示されるようにする
+  useEffect(() => {
+    addDebugLog(`[APP] Render complete (useEffect) - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
+    addDebugLog(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
+    addDebugLog(`[APP] DOM check - app-container exists: ${!!document.querySelector('.app-container')}`);
+    addDebugLog(`[APP] DOM check - lobby exists: ${!!document.querySelector('.lobby')}`);
+  }, [phase, shouldRenderLobby]);
+  
+  // Lobbyコンポーネントを事前にログ出力してからレンダリング
+  if (shouldRenderLobby) {
+    addDebugLog(`[APP] Rendering Lobby component - phase: ${phase}`);
+  } else {
+    addDebugLog(`[APP] NOT rendering Lobby - phase: ${phase}`);
   }
   
   return (
@@ -499,24 +485,18 @@ function App() {
         {muted ? '🔇' : '🔊'}
       </button>
 
-      {shouldRenderLobby ? (() => {
-        addDebugLog(`[APP] Rendering Lobby component now - shouldRenderLobby: ${shouldRenderLobby}`);
-        return (
-          <Lobby
-            players={players}
-            myself={myself}
-            adminId={adminId}
-            settings={settings}
-            onStart={startGame}
-            onUpdateSettings={updateSettings}
-            onTransferAdmin={transferAdmin}
-            scores={scores}
-          />
-        );
-      })() : (() => {
-        addDebugLog(`[APP] NOT rendering Lobby - phase: ${phase}, shouldRenderLobby: ${shouldRenderLobby}`);
-        return null;
-      })()}
+      {shouldRenderLobby && (
+        <Lobby
+          players={players}
+          myself={myself}
+          adminId={adminId}
+          settings={settings}
+          onStart={startGame}
+          onUpdateSettings={updateSettings}
+          onTransferAdmin={transferAdmin}
+          scores={scores}
+        />
+      )}
       {phase === 'QUESTION_SELECTION' && (
         <SelectionScreen
           isQuestioner={isQuestioner}

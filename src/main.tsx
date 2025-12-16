@@ -1,4 +1,5 @@
-import { StrictMode } from 'react'
+// StrictModeを一時的に無効化してデバッグ（問題解決後に戻す）
+// import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { insertCoin } from 'playroomkit'
 import { DiscordSDK } from '@discord/embedded-app-sdk'
@@ -229,10 +230,12 @@ async function initApp() {
         originalError.apply(console, args);
       };
       
+      // StrictModeを一時的に無効化してデバッグ（問題解決後に戻す）
+      // StrictModeはコンポーネントを2回レンダリングするため、デバッグが困難になる
       reactRoot.render(
-        <StrictMode>
+        // <StrictMode>
           <App />
-        </StrictMode>,
+        // </StrictMode>,
       );
       debugLog('React app rendered successfully');
     } catch (error) {
@@ -266,10 +269,11 @@ initApp().catch((error) => {
   if (root) {
     // エラーが発生してもアプリを表示しようとする
     try {
+      // StrictModeを一時的に無効化してデバッグ（問題解決後に戻す）
       createRoot(root).render(
-        <StrictMode>
+        // <StrictMode>
           <App />
-        </StrictMode>,
+        // </StrictMode>,
       );
       debugLog('App rendered after error');
     } catch (e) {
