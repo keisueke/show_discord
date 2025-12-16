@@ -176,14 +176,18 @@ async function initApp() {
   
   // プロキシ問題を回避するため、一旦 discord: false に設定
   // インターセプターが完全に機能するまで待つ
+  // skipLobby: true にして、PlayroomKitのロビーUIをスキップ
+  // Reactアプリ側のロビー画面を使用
+  const shouldSkipLobby = true; // 常にReactアプリ側のロビーを使用
+  
   debugLog('Calling insertCoin...', {
-    skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
+    skipLobby: shouldSkipLobby,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
     discord: false
   });
   
   const insertCoinPromise = insertCoin({
-    skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
+    skipLobby: shouldSkipLobby,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
     discord: false  // 一旦 false に戻してロビー画面を表示
   });
