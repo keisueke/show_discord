@@ -179,11 +179,32 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
           const displayColor = discordProfile?.color || profile.color;
           const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#ccc';
           
+          // アバター画像を取得（Discord情報またはPlayroomKitプロファイルから）
+          const avatarUrl = discordProfile?.photo || profile.photo || null;
+          
           return (
             <div key={p.id} className="player-badge" style={{ backgroundColor: colorHex }}>
               <span className="player-info">
-                {p.id === adminId && <span className="admin-badge">👑</span>}
-                {displayName} {p.id === myself.id && '(You)'}
+                {avatarUrl ? (
+                  <img 
+                    src={avatarUrl} 
+                    alt={displayName}
+                    className="player-avatar"
+                    onError={(e) => {
+                      // 画像読み込みエラー時は非表示
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="player-avatar-placeholder">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="player-details">
+                  {p.id === adminId && <span className="admin-badge">👑</span>}
+                  <span className="player-name-text">{displayName}</span>
+                  {p.id === myself.id && <span className="you-badge">(You)</span>}
+                </span>
                 <span className="score-badge">Pts: {scores[p.id] || 0}</span>
               </span>
               {isAdmin && p.id !== myself.id && (
@@ -499,6 +520,26 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
               transition={{ delay: 1 + (i * 0.2) }}
             >
               <div className="player-info-result">
+                {colorHex && (
+                  <>
+                    {displayColor?.hexString || displayColor?.hex ? (
+                      <img 
+                        src={discordProfile?.photo || profile.photo || ''} 
+                        alt={displayName}
+                        className="player-avatar-result"
+                        onError={(e) => {
+                          // 画像読み込みエラー時は非表示
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+                    {(!discordProfile?.photo && !profile.photo) && (
+                      <div className="player-avatar-placeholder-result">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </>
+                )}
                 <span className="player-name" style={{ color: colorHex }}>
                   {displayName}
                 </span>

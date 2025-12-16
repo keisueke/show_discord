@@ -71,6 +71,52 @@ button:disabled {
   text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
   font-weight: bold;
 }
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex: 1;
+}
+
+.player-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.player-avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.2em;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.player-details {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.player-name-text {
+  font-weight: bold;
+}
+
+.you-badge {
+  font-size: 0.9em;
+  opacity: 0.8;
+}
 .score-badge {
   background: rgba(0,0,0,0.4);
   padding: 0.2rem 0.5rem;
@@ -185,6 +231,29 @@ button:disabled {
   display: flex;
   gap: 1rem;
   align-items: center;
+}
+
+.player-avatar-result {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.player-avatar-placeholder-result {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1em;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
 }
 .player-name {
   font-weight: bold;
