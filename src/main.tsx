@@ -121,28 +121,21 @@ async function initApp() {
     debugLog('Discord SDK init failed', err?.message);
   });
 
-  // PlayroomKitの初期化（タイムアウト付き）
-  try {
-    debugLog('Starting PlayroomKit init...');
-    const insertCoinPromise = insertCoin({
-      skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
-      gameId: 'GLWLPW9PB5oKsi0GGQdf',
-      discord: false  // プロキシ問題を回避するため一時的にfalse
-    });
-
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('PlayroomKit initialization timeout')), 10000)
-    );
-
-    await Promise.race([insertCoinPromise, timeoutPromise]);
+  // PlayroomKitの初期化（非ブロッキング）
+  debugLog('Starting PlayroomKit init...');
+  insertCoin({
+    skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
+    gameId: 'GLWLPW9PB5oKsi0GGQdf',
+    discord: false  // プロキシ問題を回避するため一時的にfalse
+  }).then(() => {
     debugLog('PlayroomKit initialized successfully');
-  } catch (error) {
+  }).catch((error) => {
     debugLog('PlayroomKit init failed', error instanceof Error ? error.message : 'Unknown');
-    // PlayroomKitの初期化に失敗した場合でもアプリを表示
+    // PlayroomKitの初期化に失敗した場合でもアプリは動作する
     if (import.meta.env.MODE === 'development') {
-      console.warn('PlayroomKit initialization failed or timed out:', error);
+      console.warn('PlayroomKit initialization failed:', error);
     }
-  }
+  });
 
   // Reactアプリのレンダリング（初期化が完了していなくても表示）
   debugLog('Rendering React app...');
