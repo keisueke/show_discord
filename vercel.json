@@ -5,8 +5,8 @@
   "framework": "vite",
   "rewrites": [
     {
-      "source": "/.proxy/:path*",
-      "destination": "/api/proxy/:path*"
+      "source": "/.proxy",
+      "destination": "/api/proxy"
     }
   ],
   "headers": [
