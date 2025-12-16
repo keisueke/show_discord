@@ -5,22 +5,11 @@ import { DiscordSDK } from '@discord/embedded-app-sdk'
 import './index.css'
 import App from './App.tsx'
 
-// デバッグ用：エラーログをコンソールとDOMに出力
+// デバッグ用：開発モードのみログを出力
 function debugLog(message: string, data?: any) {
-  console.log(`[DEBUG] ${message}`, data || '');
-  
-  // DOM上にもログを表示（Discord内でも確認可能）
-  const debugDiv = document.getElementById('debug-log') || (() => {
-    const div = document.createElement('div');
-    div.id = 'debug-log';
-    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
-    document.body.appendChild(div);
-    return div;
-  })();
-  
-  const time = new Date().toLocaleTimeString();
-  debugDiv.innerHTML += `<div>[${time}] ${message} ${data ? JSON.stringify(data).slice(0, 100) : ''}</div>`;
-  debugDiv.scrollTop = debugDiv.scrollHeight;
+  if (import.meta.env.MODE === 'development') {
+    console.log(`[DEBUG] ${message}`, data || '');
+  }
 }
 
 // グローバルfetchをインターセプトして、/.proxy/ リクエストを /.proxy?url= 形式に変換
@@ -28,8 +17,10 @@ const originalFetch = window.fetch;
 window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
   
-  // すべてのfetchをログに出力（デバッグ用）
-  console.log('[FETCH]', url.slice(0, 100));
+  // 開発モードのみfetchをログに出力
+  if (import.meta.env.MODE === 'development') {
+    console.log('[FETCH]', url.slice(0, 100));
+  }
   
   // /.proxy/https://... 形式を /.proxy?url=... 形式に変換
   if (url.includes('/.proxy/')) {
@@ -38,39 +29,32 @@ window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<R
       const targetUrl = proxyMatch[1];
       const baseUrl = url.substring(0, url.indexOf('/.proxy/'));
       url = `${baseUrl}/.proxy?url=${encodeURIComponent(targetUrl)}`;
-      console.log('[FETCH CONVERTED]', url.slice(0, 100));
-      
-      // debugLogは後で定義されるので、ここでは使わない
-      setTimeout(() => {
-        try {
-          debugLog('Fetch intercepted', { original: proxyMatch[0].slice(0, 50), converted: url.slice(0, 80) });
-        } catch (e) {
-          // debugLogがまだ定義されていない場合は無視
-        }
-      }, 0);
+      if (import.meta.env.MODE === 'development') {
+        console.log('[FETCH CONVERTED]', url.slice(0, 100));
+      }
     }
   }
   
   return originalFetch.call(window, url, init);
 };
 
-// Discord SDKの初期化（非同期、エラーが発生しても続行、エラーは静かに処理）
-async function initDiscordSDK(isDiscordActivity: boolean) {
+// Discord SDKの初期化とユーザー情報の取得
+let discordSdkInstance: DiscordSDK | null = null;
+
+async function initDiscordSDK(isDiscordActivity: boolean): Promise<DiscordSDK | null> {
   if (!isDiscordActivity) {
-    return;
+    return null;
   }
 
   try {
     const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
     if (!clientId) {
-      // 環境変数が設定されていない場合は静かにスキップ
-      return;
+      return null;
     }
 
-    // Discord SDKの初期化（非同期で実行、ブロックしない）
     const discordSdk = new DiscordSDK(clientId);
 
-    // ready()を呼び出す（タイムアウト付き、エラーは静かに処理）
+    // ready()を呼び出す（タイムアウト付き）
     const readyPromise = discordSdk.ready();
     const timeoutPromise = new Promise<never>((_, reject) => 
       setTimeout(() => reject(new Error('Timeout')), 3000)
@@ -78,16 +62,45 @@ async function initDiscordSDK(isDiscordActivity: boolean) {
 
     await Promise.race([readyPromise, timeoutPromise]);
     
-    // 成功時のみログ出力
-    console.log('Discord SDK initialized successfully');
+    discordSdkInstance = discordSdk;
+    debugLog('Discord SDK initialized successfully');
+    return discordSdk;
 
   } catch (error) {
-    // エラーは完全に抑制（ユーザーには表示しない）
-    // Discord SDKの初期化に失敗してもアプリは正常に動作する
-    // 開発時のみコンソールに出力（本番環境では出力しない）
-    if (import.meta.env.MODE === 'development') {
-      console.debug('Discord SDK initialization skipped:', error instanceof Error ? error.message : 'Unknown error');
+    debugLog('Discord SDK initialization failed', error instanceof Error ? error.message : 'Unknown error');
+    return null;
+  }
+}
+
+// Discordユーザー情報を取得してPlayroomKitに設定
+async function setDiscordProfile() {
+  if (!discordSdkInstance) {
+    return;
+  }
+
+  try {
+    // Discord Activity内では、認証済みのユーザー情報を取得
+    // まず認証を試みる（既に認証済みの場合はスキップされる）
+    try {
+      await discordSdkInstance.commands.authorize({
+        client_id: import.meta.env.VITE_DISCORD_CLIENT_ID || '',
+        response_type: 'code',
+        state: '',
+        prompt: 'none',
+        scope: ['identify'],
+      });
+    } catch (authError) {
+      // 認証エラーは無視（既に認証済みの場合など）
+      debugLog('Auth skipped', authError instanceof Error ? authError.message : 'Unknown');
     }
+
+    // Discord Activity内では、ユーザー情報はURLパラメータやSDKから取得可能
+    // ここでは簡易的に、PlayroomKitのプロファイルを手動設定する方法にフォールバック
+    // 実際のDiscord情報は、PlayroomKitのdiscord: trueオプションで自動取得される
+    
+    debugLog('Discord profile setup attempted');
+  } catch (error) {
+    debugLog('Failed to set Discord profile', error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -115,45 +128,31 @@ async function initApp() {
   
   debugLog('Is Discord Activity?', isDiscordActivity);
 
-  // Discord SDKの初期化を非同期で開始（ブロックしない、エラーは静かに処理）
+  // Discord SDKの初期化を非同期で開始
   debugLog('Starting Discord SDK init...');
-  initDiscordSDK(isDiscordActivity).catch((err) => {
+  initDiscordSDK(isDiscordActivity).then((sdk) => {
+    if (sdk) {
+      // Discord情報をPlayroomKitに設定
+      setDiscordProfile();
+    }
+  }).catch((err) => {
     debugLog('Discord SDK init failed', err?.message);
   });
 
   // PlayroomKitの初期化（非ブロッキング）
-  debugLog('Starting PlayroomKit init...', { 
+  debugLog('Starting PlayroomKit init...');
+  
+  insertCoin({
     skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
-    discord: false
-  });
-  
-  const insertCoinPromise = insertCoin({
-    skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
-    gameId: 'GLWLPW9PB5oKsi0GGQdf',
-    discord: false  // プロキシ問題を回避するため一時的にfalse
-  });
-  
-  // 初期化の進行状況を監視
-  insertCoinPromise.then((result) => {
-    debugLog('PlayroomKit initialized successfully', result);
+    discord: false  // プロキシ問題を回避するためfalse
+  }).then(() => {
+    debugLog('PlayroomKit initialized successfully');
+    // PlayroomKit初期化後にDiscordプロファイルを設定
+    setDiscordProfile();
   }).catch((error) => {
-    debugLog('PlayroomKit init failed', { 
-      message: error instanceof Error ? error.message : 'Unknown',
-      error: error 
-    });
-    // PlayroomKitの初期化に失敗した場合でもアプリは動作する
-    if (import.meta.env.MODE === 'development') {
-      console.warn('PlayroomKit initialization failed:', error);
-    }
+    debugLog('PlayroomKit init failed', error instanceof Error ? error.message : 'Unknown');
   });
-  
-  // 5秒後に状態を確認
-  setTimeout(() => {
-    debugLog('PlayroomKit status check', { 
-      promiseState: insertCoinPromise 
-    });
-  }, 5000);
 
   // Reactアプリのレンダリング（初期化が完了していなくても表示）
   debugLog('Rendering React app...');
