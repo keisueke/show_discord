@@ -46,13 +46,7 @@ window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<R
 
 // XMLHttpRequestもインターセプト（PlayroomKitが使う可能性がある）
 const originalXHROpen = XMLHttpRequest.prototype.open;
-XMLHttpRequest.prototype.open = function(
-  method: string, 
-  url: string | URL, 
-  async?: boolean, 
-  username?: string | null, 
-  password?: string | null
-) {
+XMLHttpRequest.prototype.open = function(method: string, url: string | URL, async?: boolean, username?: string | null, password?: string | null): void {
   const urlString = typeof url === 'string' ? url : url.href;
   
   if (import.meta.env.MODE === 'development') {
@@ -61,16 +55,8 @@ XMLHttpRequest.prototype.open = function(
   
   const convertedUrl = convertProxyUrl(urlString);
   
-  // 引数を適切に処理
-  if (async !== undefined && username !== undefined && password !== undefined) {
-    return originalXHROpen.call(this, method, convertedUrl, async, username, password);
-  } else if (async !== undefined && username !== undefined) {
-    return originalXHROpen.call(this, method, convertedUrl, async, username);
-  } else if (async !== undefined) {
-    return originalXHROpen.call(this, method, convertedUrl, async);
-  } else {
-    return originalXHROpen.call(this, method, convertedUrl);
-  }
+  // 元の関数を呼び出し（引数はそのまま渡す）
+  return originalXHROpen.call(this, method, convertedUrl, async ?? true, username ?? null, password ?? null);
 };
 
 // Discord SDKの初期化とユーザー情報の取得
