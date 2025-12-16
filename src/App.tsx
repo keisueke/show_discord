@@ -444,12 +444,18 @@ function App() {
     addDebugLog(`[APP] Phase condition check - phase === 'LOBBY': ${phase === 'LOBBY'}`);
   }, [phase]);
   
-  // デバッグ: phaseの値を確認
+  // デバッグ: phaseの値を確認（コンソールにも強制出力）
+  console.log(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
   addDebugLog(`[APP] About to render - phase: "${phase}", type: ${typeof phase}, === 'LOBBY': ${phase === 'LOBBY'}`);
   
   // Lobbyコンポーネントをレンダリングするかどうかを決定
   const shouldRenderLobby = phase === 'LOBBY';
+  console.log(`[APP] shouldRenderLobby: ${shouldRenderLobby}`);
   addDebugLog(`[APP] shouldRenderLobby: ${shouldRenderLobby}`);
+  
+  // デバッグ: レンダリング直前のログ
+  console.log(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
+  addDebugLog(`[APP] About to return JSX - shouldRenderLobby: ${shouldRenderLobby}, phase: ${phase}`);
   
   return (
     <div className="app-container">
@@ -461,7 +467,8 @@ function App() {
         {muted ? '🔇' : '🔊'}
       </button>
 
-      {shouldRenderLobby && (() => {
+      {shouldRenderLobby ? (() => {
+        console.log(`[APP] Rendering Lobby component now`);
         addDebugLog(`[APP] Rendering Lobby component now`);
         return (
           <Lobby
@@ -475,6 +482,10 @@ function App() {
             scores={scores}
           />
         );
+      })() : (() => {
+        console.log(`[APP] NOT rendering Lobby - phase: ${phase}`);
+        addDebugLog(`[APP] NOT rendering Lobby - phase: ${phase}`);
+        return null;
       })()}
       {phase === 'QUESTION_SELECTION' && (
         <SelectionScreen
