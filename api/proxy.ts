@@ -52,9 +52,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   
   // クエリパラメータがない場合は、リクエストURLからパスを抽出
   if (!targetUrl && req.url) {
-    // /api/proxy?... の形式の場合
     const urlObj = new URL(req.url, `https://${req.headers.host}`);
+    
+    // クエリパラメータから取得を試みる
     targetUrl = urlObj.searchParams.get('url') || undefined;
+    
+    // パスから取得を試みる（/.proxy/https://... または /api/proxy/https://...）
+    if (!targetUrl) {
+      const pathname = urlObj.pathname;
+      const proxyPrefixes = ['/.proxy/', '/api/proxy/'];
+      for (const prefix of proxyPrefixes) {
+        if (pathname.startsWith(prefix)) {
+          targetUrl = pathname.slice(prefix.length) + urlObj.search;
+          break;
+        }
+      }
+    }
   }
 
   // URLが空の場合
