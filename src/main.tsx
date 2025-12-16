@@ -251,23 +251,74 @@ async function setDiscordProfile() {
 
     // Discord情報をPlayroomKitのプロファイルに設定
     if (discordUser) {
+      // 現在のプロファイルを取得して構造を確認
+      const currentProfile = player.getProfile();
+      debugLog('Current profile structure', {
+        hasName: 'name' in currentProfile,
+        hasPhoto: 'photo' in currentProfile,
+        hasAvatar: 'avatar' in currentProfile,
+        hasColor: 'color' in currentProfile,
+        colorType: currentProfile.color ? typeof currentProfile.color : 'none'
+      });
+
+      // PlayroomKitのプロファイル構造に合わせてデータを準備
       const profileData: any = {
         name: discordUser.username || discordUser.global_name || 'Discord User',
       };
 
-      // アバターがある場合は設定
+      // アバターがある場合は設定（PlayroomKitは photo を使用）
       if (discordUser.avatar) {
         const avatarUrl = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`;
-        profileData.avatar = avatarUrl;
+        profileData.photo = avatarUrl; // PlayroomKitは photo を使用
       }
 
-      // 色を設定（DiscordのユーザーIDから生成）
-      if (discordUser.accent_color) {
-        profileData.color = { hex: `#${discordUser.accent_color.toString(16).padStart(6, '0')}` };
-      } else {
-        // デフォルトの色を設定（ユーザーIDから生成）
-        const colorSeed = parseInt(discordUser.id) % 360;
-        profileData.color = { hex: `hsl(${colorSeed}, 70%, 50%)` };
+      // 色を設定（PlayroomKitの形式に合わせる）
+      // 現在のプロファイルのcolor構造を確認して、同じ形式で設定
+      if (currentProfile.color && typeof currentProfile.color === 'object') {
+        // 既存のcolor構造を使用
+        if ('hexString' in currentProfile.color) {
+          // hexString形式の場合
+          if (discordUser.accent_color) {
+            const hexString = `#${discordUser.accent_color.toString(16).padStart(6, '0')}`;
+            // hexStringからRGBを計算
+            const r = parseInt(hexString.slice(1, 3), 16);
+            const g = parseInt(hexString.slice(3, 5), 16);
+            const b = parseInt(hexString.slice(5, 7), 16);
+            const hex = parseInt(hexString.slice(1), 16);
+            profileData.color = { r, g, b, hexString, hex };
+          } else {
+            // ユーザーIDから色を生成
+            const colorSeed = parseInt(discordUser.id) % 360;
+            // HSLからRGBに変換
+            const h = colorSeed / 360;
+            const s = 0.7;
+            const l = 0.5;
+            const c = (1 - Math.abs(2 * l - 1)) * s;
+            const x = c * (1 - Math.abs((h * 6) % 2 - 1));
+            const m = l - c / 2;
+            let r = 0, g = 0, b = 0;
+            if (h < 1/6) { r = c; g = x; b = 0; }
+            else if (h < 2/6) { r = x; g = c; b = 0; }
+            else if (h < 3/6) { r = 0; g = c; b = x; }
+            else if (h < 4/6) { r = 0; g = x; b = c; }
+            else if (h < 5/6) { r = x; g = 0; b = c; }
+            else { r = c; g = 0; b = x; }
+            r = Math.round((r + m) * 255);
+            g = Math.round((g + m) * 255);
+            b = Math.round((b + m) * 255);
+            const hexString = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            const hex = parseInt(hexString.slice(1), 16);
+            profileData.color = { r, g, b, hexString, hex };
+          }
+        } else if ('hex' in currentProfile.color) {
+          // シンプルなhex形式の場合
+          if (discordUser.accent_color) {
+            profileData.color = { hex: `#${discordUser.accent_color.toString(16).padStart(6, '0')}` };
+          } else {
+            const colorSeed = parseInt(discordUser.id) % 360;
+            profileData.color = { hex: `hsl(${colorSeed}, 70%, 50%)` };
+          }
+        }
       }
 
       // PlayroomKitのプロファイルを設定
