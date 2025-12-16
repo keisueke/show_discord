@@ -335,28 +335,52 @@ function App() {
     );
   }
   
-  const {
-    phase,
-    settings,
-    adminId,
-    players,
-    myself,
-    questionerId,
-    questionCandidates,
-    currentQuestion,
-    result,
-    currentRound,
-    scores, // used implied
-    isDoubleScore,
-    startGame,
-    updateSettings,
-    transferAdmin,
-    selectQuestion,
-    submitAnswer,
-    nextRound
-  } = engine;
-
-  console.log('[APP] Engine state extracted', { phase, playersCount: players.length, myselfExists: !!myself });
+  // デバッグログに出力
+  const debugDiv = document.getElementById('debug-log');
+  
+  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, scores, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound;
+  
+  try {
+    ({
+      phase,
+      settings,
+      adminId,
+      players,
+      myself,
+      questionerId,
+      questionCandidates,
+      currentQuestion,
+      result,
+      currentRound,
+      scores,
+      isDoubleScore,
+      startGame,
+      updateSettings,
+      transferAdmin,
+      selectQuestion,
+      submitAnswer,
+      nextRound
+    } = engine);
+    
+    if (debugDiv) {
+      const time = new Date().toLocaleTimeString();
+      debugDiv.innerHTML += `<div>[${time}] [APP] Engine state extracted - phase: ${phase}, players: ${players.length}, myself: ${!!myself}</div>`;
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+    }
+    console.log('[APP] Engine state extracted', { phase, playersCount: players.length, myselfExists: !!myself });
+  } catch (error) {
+    if (debugDiv) {
+      const time = new Date().toLocaleTimeString();
+      debugDiv.innerHTML += `<div style="color:red;">[${time}] [APP] Engine destructuring ERROR: ${error instanceof Error ? error.message : String(error)}</div>`;
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+    }
+    console.error('[APP] Engine destructuring error:', error);
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white' }}>
+        <div>エラー: エンジン状態の取得に失敗しました</div>
+      </div>
+    );
+  }
 
   // デバッグ: 現在の状態をログに出力
   useEffect(() => {
@@ -372,6 +396,11 @@ function App() {
 
   // myselfがnullの場合はローディング表示
   if (!myself) {
+    if (debugDiv) {
+      const time = new Date().toLocaleTimeString();
+      debugDiv.innerHTML += `<div>[${time}] [APP] myself is null, showing loading... - players: ${players.length}, phase: ${phase}</div>`;
+      debugDiv.scrollTop = debugDiv.scrollHeight;
+    }
     console.log('[APP] myself is null, showing loading...');
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'white', flexDirection: 'column' }}>
@@ -383,6 +412,11 @@ function App() {
     );
   }
   
+  if (debugDiv) {
+    const time = new Date().toLocaleTimeString();
+    debugDiv.innerHTML += `<div>[${time}] [APP] Rendering main UI - phase: ${phase}, players: ${players.length}</div>`;
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+  }
   console.log('[APP] Rendering main UI', { phase, playersCount: players.length });
 
   const isAdmin = myself.id === adminId;
