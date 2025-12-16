@@ -11,15 +11,35 @@ async function initApp() {
   const frameId = urlParams.get('frame_id');
   const instanceId = urlParams.get('instance_id');
 
-  // Discord Activity内で動作しているかチェック（frame_idまたはinstance_idがあればDiscord内）
-  const isDiscordActivity = !!(frameId || instanceId);
+  // Discord Activity内で動作しているかチェック
+  // - frame_idまたはinstance_idがあればDiscord内
+  // - 親ウィンドウがDiscordのウィンドウかチェック（テストモード対応）
+  let parentIsDiscord = false;
+  try {
+    if (window.parent !== window) {
+      parentIsDiscord = window.parent.location.hostname.includes('discord');
+    }
+  } catch (e) {
+    // クロスオリジンでアクセスできない場合は無視
+  }
+  const isDiscordActivity = !!(frameId || instanceId) || parentIsDiscord;
+
+  let parentHostname = 'same';
+  try {
+    if (window.parent !== window) {
+      parentHostname = window.parent.location.hostname;
+    }
+  } catch (e) {
+    parentHostname = 'cross-origin (cannot access)';
+  }
 
   console.log('Environment check:', {
     isDiscordActivity,
     frameId,
     instanceId,
     hostname: window.location.hostname,
-    clientId: import.meta.env.VITE_DISCORD_CLIENT_ID
+    parentHostname,
+    clientId: import.meta.env.VITE_DISCORD_CLIENT_ID ? '***set***' : 'NOT SET'
   });
 
   if (isDiscordActivity) {
@@ -27,6 +47,7 @@ async function initApp() {
       const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
       if (!clientId) {
         console.error('VITE_DISCORD_CLIENT_ID is not set!');
+        console.error('Please set VITE_DISCORD_CLIENT_ID in your .env file');
         throw new Error('Discord Client ID is required');
       }
 
@@ -34,17 +55,23 @@ async function initApp() {
       const discordSdk = new DiscordSDK(clientId);
       console.log('Discord SDK created, waiting for ready...');
 
+      // ready()を呼び出すことで、Discordにアプリが準備完了であることを通知
+      // これにより、Discord内でアプリが正しく表示されます
       await discordSdk.ready();
       console.log('Discord SDK is ready!', {
         instanceId: discordSdk.instanceId,
         channelId: discordSdk.channelId,
-        guildId: discordSdk.guildId
+        guildId: discordSdk.guildId,
+        platform: discordSdk.platform
       });
 
     } catch (error) {
       console.error('Discord SDK initialization failed:', error);
       // Discord SDK初期化失敗時もアプリは続行（デバッグ用）
+      // ただし、Discord内では画面が表示されない可能性があります
     }
+  } else {
+    console.log('Running in non-Discord environment (local development mode)');
   }
 
   // PlayroomKitの初期化

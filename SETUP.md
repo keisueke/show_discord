@@ -50,7 +50,30 @@ cloudflared tunnel --url http://localhost:5173
    - ルートパス `/` に対して設定します。
 4. 設定を保存します。
 
-## 6. 動作確認
+## 6. Discordアプリテストモードの設定（推奨）
+
+Discord Developer Portalの**Test Mode**を使用すると、Discord内で直接アプリをテストできます。
+
+### テストモードの有効化手順
+
+1. Discord Developer Portalで、作成したアプリケーションを選択します。
+2. 左メニューの **Activities** (または Embedded App) を選択します。
+3. **Test Mode** セクションで、**Enable Test Mode** をオンにします。
+4. **Test Mode URL** に、トンネリングで取得したHTTPS URL（例: `https://rapid-yours-domain.trycloudflare.com`）を入力します。
+5. 設定を保存します。
+
+### テストモードでの起動方法
+
+1. Discordアプリを開きます（デスクトップアプリまたはブラウザ版）。
+2. 任意のサーバーまたはDMで、**アプリを追加**ボタン（または `/` コマンド）を使用します。
+3. 作成したアプリケーション名を検索して選択します。
+4. アプリがDiscord内のフレームで開き、テストできます。
+
+**注意**: テストモードは開発者本人のみが使用できます。他のユーザーと共有するには、通常の公開モードでデプロイする必要があります。
+
+---
+
+## 7. 動作確認（通常モード）
 
 1. Discord開発者ポータルで生成された **Activity Invite Link** を使用するか、開発サーバーに参加させているボット/アプリ経由でアクティビティを起動します。
 2. ボイスチャンネルに参加し、アクティビティランチャー（ロケットアイコン）から作成したアプリを選択して起動します。
@@ -64,7 +87,7 @@ cloudflared tunnel --url http://localhost:5173
 
 ---
 
-## 7. GitHub Pages へのデプロイについて
+## 8. GitHub Pages へのデプロイについて
 
 GitHub Pages を利用してアクティビティをホスティングすることが可能です。
 
