@@ -161,6 +161,7 @@ async function setDiscordProfile() {
     // 方法1: 認証コードをバックエンドでトークンと交換
     if (!accessToken && authCode) {
       try {
+        debugLog('Attempting to exchange code for token', { codeLength: authCode.length });
         const tokenResponse = await fetch('/api/discord-token', {
           method: 'POST',
           headers: {
@@ -175,10 +176,17 @@ async function setDiscordProfile() {
           debugLog('Access token received from backend exchange');
         } else {
           const errorText = await tokenResponse.text();
-          debugLog('Failed to exchange code for token', { status: tokenResponse.status, error: errorText });
+          debugLog('Failed to exchange code for token', { 
+            status: tokenResponse.status, 
+            statusText: tokenResponse.statusText,
+            error: errorText 
+          });
         }
       } catch (e) {
-        debugLog('Failed to exchange code for token', e instanceof Error ? e.message : 'Unknown');
+        debugLog('Failed to exchange code for token', { 
+          error: e instanceof Error ? e.message : 'Unknown',
+          stack: e instanceof Error ? e.stack : undefined
+        });
       }
     }
     

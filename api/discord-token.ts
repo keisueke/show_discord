@@ -20,9 +20,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Authorization code is required' });
   }
 
-  const clientId = process.env.VITE_DISCORD_CLIENT_ID;
+  // サーバーレス関数では、VITE_プレフィックス付きの環境変数は使用できない
+  // Vercelの環境変数で DISCORD_CLIENT_ID と DISCORD_CLIENT_SECRET を設定する必要がある
+  const clientId = process.env.DISCORD_CLIENT_ID || process.env.VITE_DISCORD_CLIENT_ID;
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-  const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://discord.com/oauth2/authorize';
+  // Discord Activity内では、リダイレクトURIは通常不要（認証コードのみで交換可能）
+  const redirectUri = process.env.DISCORD_REDIRECT_URI || 'https://discord.com/activities';
 
   if (!clientId || !clientSecret) {
     return res.status(500).json({ error: 'Discord OAuth2 credentials not configured' });
