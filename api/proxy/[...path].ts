@@ -46,33 +46,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(204).end();
   }
 
-  // URLパスから転送先URLを取得
+  // パスパラメータから転送先URLを取得
   // /.proxy/https://discord.com/api/... → https://discord.com/api/...
-  const { url: reqUrl } = req;
-  if (!reqUrl) {
-    return res.status(400).json({ error: 'Missing URL' });
-  }
-
-  // /api/proxy/ 以降の部分を取得
-  const proxyPrefix = '/api/proxy/';
-  const proxyIndex = reqUrl.indexOf(proxyPrefix);
-  if (proxyIndex === -1) {
-    return res.status(400).json({ error: 'Invalid proxy path' });
-  }
-
-  const targetUrl = reqUrl.slice(proxyIndex + proxyPrefix.length);
+  const pathParam = req.query.path;
   
-  // URLが空の場合
-  if (!targetUrl) {
-    return res.status(400).json({ error: 'Target URL is required', usage: '/.proxy/{full_url}' });
+  // パスが空の場合
+  if (!pathParam) {
+    return res.status(400).json({ 
+      error: 'Target URL is required', 
+      usage: '/.proxy/{full_url}',
+      status: 'Proxy endpoint is working'
+    });
   }
+
+  // 配列の場合は結合、文字列の場合はそのまま使用
+  const targetPath = Array.isArray(pathParam) ? pathParam.join('/') : pathParam;
 
   // URLのデコード（二重エンコードされている場合に対応）
   let decodedUrl: string;
   try {
-    decodedUrl = decodeURIComponent(targetUrl);
+    decodedUrl = decodeURIComponent(targetPath);
   } catch {
-    decodedUrl = targetUrl;
+    decodedUrl = targetPath;
   }
 
   // http:// または https:// で始まらない場合は https:// を付与
