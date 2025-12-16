@@ -426,13 +426,18 @@ function App() {
   addDebugLog(`[APP] Rendering main UI - phase: ${phase}, players: ${players.length}`);
 
   const isAdmin = myself.id === adminId;
+  addDebugLog(`[APP] isAdmin calculated: ${isAdmin}`);
+  
   const isQuestioner = myself.id === questionerId;
+  addDebugLog(`[APP] isQuestioner calculated: ${isQuestioner}`);
 
   // Find questioner name
   const questionerPlayer = players.find(p => p.id === questionerId);
   const questionerName = questionerPlayer ? questionerPlayer.getProfile().name : 'Unknown';
+  addDebugLog(`[APP] questionerName: ${questionerName}`);
 
   const myAnswer = myself.getState('answer') as number | undefined;
+  addDebugLog(`[APP] myAnswer: ${myAnswer}`);
 
   // Sound Management
   useEffect(() => {
@@ -455,6 +460,7 @@ function App() {
 
   // Lobbyコンポーネントをレンダリングするかどうかを決定
   const shouldRenderLobby = phase === 'LOBBY';
+  addDebugLog(`[APP] shouldRenderLobby calculated: ${shouldRenderLobby}, phase: ${phase}, phase === 'LOBBY': ${phase === 'LOBBY'}`);
   
   // デバッグ: return文の前に確実にログを出力
   addDebugLog(`[APP] Before return - phase: "${phase}", shouldRenderLobby: ${shouldRenderLobby}`);
