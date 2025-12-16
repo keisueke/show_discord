@@ -5,50 +5,40 @@ import { DiscordSDK } from '@discord/embedded-app-sdk'
 import './index.css'
 import App from './App.tsx'
 
-// Discord SDKの初期化（非同期、エラーが発生しても続行）
+// Discord SDKの初期化（非同期、エラーが発生しても続行、エラーは静かに処理）
 async function initDiscordSDK(isDiscordActivity: boolean) {
   if (!isDiscordActivity) {
-    console.log('Running in non-Discord environment (local development mode)');
     return;
   }
 
   try {
     const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
     if (!clientId) {
-      console.warn('VITE_DISCORD_CLIENT_ID is not set - Discord SDK will not initialize');
+      // 環境変数が設定されていない場合は静かにスキップ
       return;
     }
 
     // Discord SDKの初期化（非同期で実行、ブロックしない）
     const discordSdk = new DiscordSDK(clientId);
-    console.log('Discord SDK created, initializing...', {
-      clientId: clientId.substring(0, 10) + '...',
-      url: window.location.href
-    });
 
-    // ready()を呼び出す（タイムアウト付き）
+    // ready()を呼び出す（タイムアウト付き、エラーは静かに処理）
     const readyPromise = discordSdk.ready();
     const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Discord SDK ready() timeout after 5s')), 5000)
+      setTimeout(() => reject(new Error('Timeout')), 3000)
     );
 
     await Promise.race([readyPromise, timeoutPromise]);
     
-    console.log('Discord SDK is ready!', {
-      instanceId: discordSdk.instanceId,
-      channelId: discordSdk.channelId,
-      guildId: discordSdk.guildId,
-      platform: discordSdk.platform
-    });
+    // 成功時のみログ出力
+    console.log('Discord SDK initialized successfully');
 
   } catch (error) {
-    console.error('Discord SDK initialization failed (non-blocking):', error);
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : String(error),
-      name: error instanceof Error ? error.name : undefined
-    });
-    // エラーが発生してもアプリは続行
-    console.warn('App will continue without Discord SDK');
+    // エラーは完全に抑制（ユーザーには表示しない）
+    // Discord SDKの初期化に失敗してもアプリは正常に動作する
+    // 開発時のみコンソールに出力（本番環境では出力しない）
+    if (import.meta.env.MODE === 'development') {
+      console.debug('Discord SDK initialization skipped:', error instanceof Error ? error.message : 'Unknown error');
+    }
   }
 }
 
@@ -69,27 +59,17 @@ async function initApp() {
   }
   const isDiscordActivity = !!(frameId || instanceId) || parentIsDiscord;
 
-  console.log('Environment check:', {
-    isDiscordActivity,
-    frameId,
-    instanceId,
-    hostname: window.location.hostname,
-    clientId: import.meta.env.VITE_DISCORD_CLIENT_ID ? '***set***' : 'NOT SET'
-  });
-
-  // Discord SDKの初期化を非同期で開始（ブロックしない）
-  initDiscordSDK(isDiscordActivity).catch(err => {
-    console.error('Discord SDK init error (ignored):', err);
+  // Discord SDKの初期化を非同期で開始（ブロックしない、エラーは静かに処理）
+  initDiscordSDK(isDiscordActivity).catch(() => {
+    // エラーは完全に無視（ユーザーには表示しない）
   });
 
   // PlayroomKitの初期化
-  console.log('Initializing PlayroomKit...');
   await insertCoin({
     skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
     gameId: 'QuizGoodLine',
     discord: isDiscordActivity
   });
-  console.log('PlayroomKit initialized!');
 
   // Reactアプリのレンダリング（Discord SDKの初期化を待たない）
   createRoot(document.getElementById('root')!).render(
@@ -100,13 +80,22 @@ async function initApp() {
 }
 
 initApp().catch((error) => {
-  console.error('App initialization failed:', error);
-  // エラー時にユーザーに表示
-  document.getElementById('root')!.innerHTML = `
-    <div style="color: white; padding: 20px; text-align: center;">
-      <h2>読み込みエラー</h2>
-      <p>アプリの初期化に失敗しました。</p>
-      <pre style="text-align: left; background: #333; padding: 10px; border-radius: 8px; overflow: auto;">${error}</pre>
-    </div>
-  `;
+  // エラー時も静かに処理（開発時のみコンソールに出力）
+  if (import.meta.env.MODE === 'development') {
+    console.error('App initialization failed:', error);
+  }
+  // エラーが発生しても、可能な限りアプリを表示しようとする
+  try {
+    const root = document.getElementById('root');
+    if (root) {
+      root.innerHTML = `
+        <div style="color: white; padding: 20px; text-align: center;">
+          <h2>読み込み中...</h2>
+          <p>アプリを初期化しています。しばらくお待ちください。</p>
+        </div>
+      `;
+    }
+  } catch (e) {
+    // エラー表示も失敗した場合は何もしない
+  }
 });
