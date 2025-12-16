@@ -73,7 +73,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores }: LobbyProps) => {
+const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores, onRefresh }: LobbyProps) => {
   // デバッグログ出力ヘルパー関数（Appコンポーネントと同じ実装）
   const addDebugLog = (message: string, isError = false) => {
     try {
@@ -169,7 +169,30 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
       </div>
 
       <div className="players-list">
-        <h3>参加者</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <h3 style={{ margin: 0 }}>参加者</h3>
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="btn-refresh"
+              title="参加者情報を更新"
+              style={{
+                background: 'rgba(100, 100, 100, 0.5)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '4px',
+                color: '#fff',
+                padding: '0.3rem 0.6rem',
+                fontSize: '0.9em',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem'
+              }}
+            >
+              🔄 更新
+            </button>
+          )}
+        </div>
         {players.map((p) => {
           // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
           const isMyself = p.id === myself.id;
@@ -679,6 +702,11 @@ function App() {
   // ロビー画面の定期更新用のカウンター（画像・名前の反映を確実にするため）
   const [lobbyUpdateCounter, setLobbyUpdateCounter] = useState(0);
   
+  // 手動更新用の関数
+  const handleRefreshLobby = () => {
+    setLobbyUpdateCounter(prev => prev + 1);
+  };
+  
   const { playSE, playBGM, toggleMute, muted } = useSounds();
   addDebugLog('[APP] useSounds initialized');
 
@@ -764,13 +792,14 @@ function App() {
   }, [phase, playBGM, playSE, myself]);
 
   // ロビー画面の定期更新（画像・名前の反映を確実にするため）
+  // 5秒間隔で更新（目がチカチカしないように）
   useEffect(() => {
     if (phase !== 'LOBBY' || !myself) return;
     
-    // 初回は即座に更新、その後は1秒ごとに更新
+    // 初回は即座に更新、その後は5秒ごとに更新
     const interval = setInterval(() => {
       setLobbyUpdateCounter(prev => prev + 1);
-    }, 1000);
+    }, 5000);
     
     return () => clearInterval(interval);
   }, [phase, myself]);
@@ -878,6 +907,7 @@ function App() {
           onUpdateSettings={updateSettings}
           onTransferAdmin={transferAdmin}
           scores={scores}
+          onRefresh={handleRefreshLobby}
         />
       )}
       {phase === 'QUESTION_SELECTION' && (
