@@ -1,35 +1,134 @@
-import { useEffect } from 'react';
-import { useDiscord } from './hooks/useDiscord';
-import { useGameLogic } from './game/GameLogic';
-import type { Player, GameState } from './types';
+import { useGameEngine } from './hooks/useGameEngine';
+import type { GameSettings, Question } from './types';
+import type { PlayerState as PlayroomPlayer } from 'playroomkit';
 import './App.css';
+
+// UI Components adapted for Playroom Player objects
 
 interface LobbyProps {
   onStart: () => void;
-  players: Record<string, Player>;
-  selfId: string | null;
+  players: PlayroomPlayer[];
+  myself: PlayroomPlayer;
+  adminId: string | null;
+  settings: GameSettings;
+  onUpdateSettings: (settings: GameSettings) => void;
+  onTransferAdmin: (newAdminId: string) => void;
 }
 
-const Lobby = ({ onStart, players, selfId }: LobbyProps) => (
-  <div className="screen lobby">
-    <h1>クイズいい線いきましょう！</h1>
-    <div className="players-list">
-      {Object.values(players).map((p) => (
-        <div key={p.id} className="player-badge">
-          {p.username} {p.id === selfId && '(You)'}
+const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin }: LobbyProps) => {
+  const isAdmin = myself.id === adminId;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    onUpdateSettings({
+      ...settings,
+      [name]: parseInt(value) || 0
+    });
+  };
+
+  return (
+    <div className="screen lobby">
+      <h1>クイズいい線いきましょう！</h1>
+
+      <div className="settings-panel">
+        <h3>ゲーム設定 {isAdmin ? '(編集可)' : '(閲覧のみ)'}</h3>
+        <div className="setting-item">
+          <label>最大ラウンド数 (周):</label>
+          <input
+            type="number"
+            name="maxRounds"
+            value={settings.maxRounds}
+            onChange={handleChange}
+            disabled={!isAdmin}
+            min={1}
+            max={5}
+          />
         </div>
-      ))}
+        <div className="setting-item">
+          <label>制限時間 (秒):</label>
+          <input
+            type="number"
+            name="timeLimit"
+            value={settings.timeLimit}
+            onChange={handleChange}
+            disabled={!isAdmin}
+            min={10}
+            max={300}
+          />
+        </div>
+      </div>
+
+      <div className="players-list">
+        <h3>参加者</h3>
+        {players.map((p) => (
+          <div key={p.id} className="player-badge" style={{ backgroundColor: (p.getProfile().color as any).hex || '#ccc' }}>
+            <span className="player-info">
+              {p.id === adminId && <span className="admin-badge">👑</span>}
+              {p.getProfile().name} {p.id === myself.id && '(You)'}
+            </span>
+            {isAdmin && p.id !== myself.id && (
+              <button
+                className="btn-small"
+                onClick={() => onTransferAdmin(p.id)}
+                title="管理者を譲渡"
+              >
+                譲渡
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {isAdmin ? (
+        <button onClick={onStart} className="btn-start">ゲーム開始</button>
+      ) : (
+        <div className="waiting-message">ホストがゲームを開始するのを待っています...</div>
+      )}
     </div>
-    <button onClick={onStart}>ゲーム開始</button>
-  </div>
-);
+  );
+};
+
+interface SelectionScreenProps {
+  isQuestioner: boolean;
+  questionerName: string;
+  candidates: Question[];
+  onSelect: (q: Question) => void;
+}
+
+const SelectionScreen = ({ isQuestioner, questionerName, candidates, onSelect }: SelectionScreenProps) => {
+  if (!isQuestioner) {
+    return (
+      <div className="screen wait">
+        <h2>{questionerName} さんが問題を選んでいます...</h2>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen selection">
+      <h2>問題を選んでください</h2>
+      <div className="candidates-list">
+        {candidates.map((q, idx) => (
+          <button key={idx} className="candidate-btn" onClick={() => onSelect(q)}>
+            <div className="candidate-category">[{q.category}]</div>
+            <div className="candidate-text">{q.text}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 interface QuestionScreenProps {
-  question: string | null;
+  question: Question | null;
+  questionerName: string;
   onAnswer: (val: number) => void;
+  myAnswer: number | undefined;
+  currentRound: number;
+  maxRounds: number;
 }
 
-const QuestionScreen = ({ question, onAnswer }: QuestionScreenProps) => {
+const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentRound, maxRounds }: QuestionScreenProps) => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -37,10 +136,31 @@ const QuestionScreen = ({ question, onAnswer }: QuestionScreenProps) => {
     const val = parseInt(input.value);
     if (!isNaN(val)) onAnswer(val);
   };
+
+  if (myAnswer !== undefined) {
+    return (
+      <div className="screen wait">
+        <div className="question-summary">
+          <div className="category-label">[{question?.category}]</div>
+          <div className="question-text-small">{question?.text}</div>
+        </div>
+        <h2>回答完了！</h2>
+        <p>他のプレイヤーを待っています...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="screen question">
+      <div className="round-info">Round {currentRound} / {maxRounds}</div>
+      <div className="questioner-info">出題者: {questionerName}</div>
       <h2>問題</h2>
-      <p className="question-text">{question}</p>
+      {question && (
+        <>
+          <div className="question-category">カテゴリ: {question.category}</div>
+          <p className="question-text">{question.text}</p>
+        </>
+      )}
       <form onSubmit={handleSubmit}>
         <input name="answer" type="number" placeholder="数字を入力" />
         <button type="submit">回答する</button>
@@ -56,76 +176,109 @@ const WaitScreen = () => (
 );
 
 interface ResultScreenProps {
-  result: NonNullable<GameState['result']>;
-  answers: Record<string, number>;
-  players: Record<string, Player>;
+  result: { median: number };
+  players: PlayroomPlayer[];
   onNext: () => void;
+  isAdmin: boolean;
 }
 
-const ResultScreen = ({ result, answers, players, onNext }: ResultScreenProps) => {
+const ResultScreen = ({ result, players, onNext, isAdmin }: ResultScreenProps) => {
+  const sortedPlayers = [...players].sort((a, b) => (a.getState('answer') as number) - (b.getState('answer') as number));
+
   return (
     <div className="screen result">
       <h2>結果発表</h2>
       <div className="good-line">いい線（中央値）: {result.median}</div>
       <ul className="answers-list">
-        {Object.entries(answers).sort(([, a], [, b]) => a - b).map(([pid, val]) => (
-          <li key={pid} className={val === result.median ? 'highlight' : ''}>
-            {players[pid]?.username ?? 'Unknown'}: {val}
-          </li>
-        ))}
+        {sortedPlayers.map((p) => {
+          const val = p.getState('answer') as number;
+          return (
+            <li key={p.id} className={val === result.median ? 'highlight' : ''}>
+              <span style={{ color: (p.getProfile().color as any).hex || '#000' }}>{p.getProfile().name}</span>: {val}
+            </li>
+          );
+        })}
       </ul>
-      <button onClick={onNext}>次の問題へ</button>
+      {isAdmin ? (
+        <button onClick={onNext}>次の問題へ</button>
+      ) : (
+        <div>ホストが次へ進むのを待っています...</div>
+      )}
     </div>
   );
 };
 
 function App() {
-  const { user, ready } = useDiscord();
+  // Use new game engine
+  const engine = useGameEngine();
   const {
-    gameState,
-    selfId,
-    joinGame,
+    phase,
+    settings,
+    adminId,
+    players,
+    myself,
+    questionerId,
+    questionCandidates,
+    currentQuestion,
+    result,
+    currentRound,
     startGame,
+    updateSettings,
+    transferAdmin,
+    selectQuestion,
     submitAnswer,
-    revealResults,
     nextRound
-  } = useGameLogic();
+  } = engine;
 
-  useEffect(() => {
-    if (user && !gameState.players[user.id]) {
-      joinGame(user);
-    }
-  }, [user, joinGame, gameState.players]);
+  const isAdmin = myself.id === adminId;
+  const isQuestioner = myself.id === questionerId;
 
-  if (!ready) return <div className="loading">Loading...</div>;
+  // Find questioner name
+  const questionerPlayer = players.find(p => p.id === questionerId);
+  const questionerName = questionerPlayer ? questionerPlayer.getProfile().name : 'Unknown';
 
-  const handleAnswer = (val: number) => {
-    if (selfId) {
-      submitAnswer(selfId, val);
-      setTimeout(revealResults, 1000);
-    }
-  };
+  const myAnswer = myself.getState('answer') as number | undefined;
 
   return (
     <div className="app-container">
-      {gameState.phase === 'LOBBY' && (
-        <Lobby players={gameState.players} selfId={selfId} onStart={startGame} />
-      )}
-      {gameState.phase === 'QUESTION' && (
-        <QuestionScreen
-          question={gameState.currentQuestion}
-          onAnswer={handleAnswer}
+      {phase === 'LOBBY' && (
+        <Lobby
+          players={players}
+          myself={myself}
+          adminId={adminId}
+          settings={settings}
+          onStart={startGame}
+          onUpdateSettings={updateSettings}
+          onTransferAdmin={transferAdmin}
         />
       )}
-      {gameState.phase === 'ANSWERING' && (
+      {phase === 'QUESTION_SELECTION' && (
+        <SelectionScreen
+          isQuestioner={isQuestioner}
+          questionerName={questionerName}
+          candidates={questionCandidates}
+          onSelect={selectQuestion}
+        />
+      )}
+      {phase === 'QUESTION' && (
+        <QuestionScreen
+          question={currentQuestion}
+          questionerName={questionerName}
+          onAnswer={submitAnswer}
+          myAnswer={myAnswer}
+          currentRound={currentRound}
+          maxRounds={settings.maxRounds}
+        />
+      )}
+      {phase === 'ANSWERING' && (
         <WaitScreen />
       )}
-      {gameState.phase === 'REVEAL' && gameState.result && (
+      {phase === 'REVEAL' && result && (
         <ResultScreen
-          result={gameState.result}
-          answers={gameState.answers}
-          players={gameState.players}
+          result={result}
+          players={players}
           onNext={nextRound}
+          isAdmin={isAdmin}
         />
       )}
     </div>
