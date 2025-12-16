@@ -5,11 +5,22 @@ import { DiscordSDK } from '@discord/embedded-app-sdk'
 import './index.css'
 import App from './App.tsx'
 
-// デバッグ用：開発モードのみログを出力
+// デバッグ用：一時的に常にログを出力（問題解決後に削除）
 function debugLog(message: string, data?: any) {
-  if (import.meta.env.MODE === 'development') {
-    console.log(`[DEBUG] ${message}`, data || '');
-  }
+  console.log(`[DEBUG] ${message}`, data || '');
+  
+  // DOM上にもログを表示（Discord内でも確認可能）
+  const debugDiv = document.getElementById('debug-log') || (() => {
+    const div = document.createElement('div');
+    div.id = 'debug-log';
+    div.style.cssText = 'position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#0f0;padding:10px;font-size:10px;max-height:200px;overflow-y:auto;z-index:9999;font-family:monospace;';
+    document.body.appendChild(div);
+    return div;
+  })();
+  
+  const time = new Date().toLocaleTimeString();
+  debugDiv.innerHTML += `<div>[${time}] ${message} ${data ? JSON.stringify(data).slice(0, 100) : ''}</div>`;
+  debugDiv.scrollTop = debugDiv.scrollHeight;
 }
 
 // プロキシURLを変換するヘルパー関数
@@ -163,17 +174,21 @@ async function initApp() {
   // PlayroomKitの初期化（非ブロッキング）
   debugLog('Starting PlayroomKit init...');
   
-  // discord: true でDiscord情報を自動取得（プロキシはインターセプターで修正）
+  // プロキシ問題を回避するため、一旦 discord: false に設定
+  // インターセプターが完全に機能するまで待つ
   insertCoin({
     skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
-    discord: isDiscordActivity  // プロキシ問題はインターセプターで解決
+    discord: false  // 一旦 false に戻してロビー画面を表示
   }).then(() => {
     debugLog('PlayroomKit initialized successfully');
     // PlayroomKit初期化後にDiscordプロファイルを設定
     setDiscordProfile();
   }).catch((error) => {
-    debugLog('PlayroomKit init failed', error instanceof Error ? error.message : 'Unknown');
+    debugLog('PlayroomKit init failed', { 
+      message: error instanceof Error ? error.message : 'Unknown',
+      error: error 
+    });
   });
 
   // Reactアプリのレンダリング（初期化が完了していなくても表示）
