@@ -108,10 +108,22 @@ async function initDiscordSDK(isDiscordActivity: boolean): Promise<DiscordSDK | 
 // Discordユーザー情報を取得してPlayroomKitに設定
 async function setDiscordProfile() {
   if (!discordSdkInstance) {
+    debugLog('Discord SDK not initialized, skipping profile setup');
     return;
   }
 
   try {
+    // PlayroomKitのmyPlayer()を取得（初期化後である必要がある）
+    const { myPlayer } = await import('playroomkit');
+    const player = myPlayer();
+    
+    if (!player) {
+      debugLog('PlayroomKit player not available yet, retrying...');
+      // 少し待ってから再試行
+      setTimeout(() => setDiscordProfile(), 1000);
+      return;
+    }
+
     // Discord Activity内では、認証済みのユーザー情報を取得
     // まず認証を試みる（既に認証済みの場合はスキップされる）
     try {
@@ -122,18 +134,69 @@ async function setDiscordProfile() {
         prompt: 'none',
         scope: ['identify'],
       });
+      debugLog('Discord authorization successful');
     } catch (authError) {
       // 認証エラーは無視（既に認証済みの場合など）
       debugLog('Auth skipped', authError instanceof Error ? authError.message : 'Unknown');
     }
 
-    // Discord Activity内では、ユーザー情報はURLパラメータやSDKから取得可能
-    // ここでは簡易的に、PlayroomKitのプロファイルを手動設定する方法にフォールバック
-    // 実際のDiscord情報は、PlayroomKitのdiscord: trueオプションで自動取得される
+    // Discord SDKからユーザー情報を取得
+    // Discord Activity内では、discordSdkInstance.user に直接アクセスできる場合がある
+    let discordUser: any = null;
     
-    debugLog('Discord profile setup attempted');
+    try {
+      // 方法1: SDKのuserプロパティから取得
+      if (discordSdkInstance.user) {
+        discordUser = discordSdkInstance.user;
+        debugLog('Discord user from SDK.user', { id: discordUser.id, username: discordUser.username });
+      }
+    } catch (e) {
+      debugLog('Failed to get user from SDK.user', e instanceof Error ? e.message : 'Unknown');
+    }
+
+    // 方法2: getUser()コマンドを使用
+    if (!discordUser) {
+      try {
+        const userResult = await discordSdkInstance.commands.getUser();
+        discordUser = userResult;
+        debugLog('Discord user from getUser()', { id: discordUser?.id, username: discordUser?.username });
+      } catch (e) {
+        debugLog('Failed to get user from getUser()', e instanceof Error ? e.message : 'Unknown');
+      }
+    }
+
+    // Discord情報をPlayroomKitのプロファイルに設定
+    if (discordUser) {
+      const profileData: any = {
+        name: discordUser.username || discordUser.global_name || 'Discord User',
+      };
+
+      // アバターがある場合は設定
+      if (discordUser.avatar) {
+        const avatarUrl = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`;
+        profileData.avatar = avatarUrl;
+      }
+
+      // 色を設定（DiscordのユーザーIDから生成）
+      if (discordUser.accent_color) {
+        profileData.color = { hex: `#${discordUser.accent_color.toString(16).padStart(6, '0')}` };
+      } else {
+        // デフォルトの色を設定（ユーザーIDから生成）
+        const colorSeed = parseInt(discordUser.id) % 360;
+        profileData.color = { hex: `hsl(${colorSeed}, 70%, 50%)` };
+      }
+
+      // PlayroomKitのプロファイルを設定
+      player.setProfile(profileData);
+      debugLog('Discord profile set to PlayroomKit', profileData);
+    } else {
+      debugLog('Discord user information not available, using default profile');
+    }
   } catch (error) {
     debugLog('Failed to set Discord profile', error instanceof Error ? error.message : 'Unknown error');
+    if (error instanceof Error && error.stack) {
+      debugLog('Error stack', error.stack);
+    }
   }
 }
 
