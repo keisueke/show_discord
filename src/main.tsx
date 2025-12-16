@@ -141,20 +141,36 @@ async function setDiscordProfile() {
     }
 
     // Discord SDKからユーザー情報を取得
-    // Discord Activity内では、getUser()コマンドを使用してユーザー情報を取得
+    // Discord Activity内では、認証後にユーザー情報を取得
     let discordUser: any = null;
     
     try {
-      // getUser()コマンドを使用（引数なしで現在のユーザー情報を取得）
-      const userResult = await discordSdkInstance.commands.getUser({});
-      discordUser = userResult;
-      debugLog('Discord user from getUser()', { 
-        id: discordUser?.id, 
-        username: discordUser?.username,
-        global_name: discordUser?.global_name 
-      });
+      // 認証後にアクセストークンを使用してDiscord APIからユーザー情報を取得
+      // または、SDKの他の方法を使用
+      // 注意: Discord Activity内では、ユーザー情報は自動的に利用可能な場合がある
+      
+      // 方法1: SDKのplatformからユーザー情報を取得（利用可能な場合）
+      if ((discordSdkInstance as any).platform && (discordSdkInstance as any).platform.user) {
+        discordUser = (discordSdkInstance as any).platform.user;
+        debugLog('Discord user from platform.user', { 
+          id: discordUser?.id, 
+          username: discordUser?.username 
+        });
+      }
     } catch (e) {
-      debugLog('Failed to get user from getUser()', e instanceof Error ? e.message : 'Unknown');
+      debugLog('Failed to get user from platform.user', e instanceof Error ? e.message : 'Unknown');
+    }
+
+    // 方法2: 認証後にRPC経由でユーザー情報を取得
+    if (!discordUser) {
+      try {
+        // Discord Activity内では、認証後にユーザー情報が利用可能になる
+        // ここでは、PlayroomKitのdiscord: trueオプションを使用することを推奨
+        // 手動設定の場合は、認証トークンを使用してDiscord APIを直接呼び出す必要がある
+        debugLog('Discord user information not available via SDK, consider using discord: true option');
+      } catch (e) {
+        debugLog('Failed to get user via alternative method', e instanceof Error ? e.message : 'Unknown');
+      }
     }
 
     // Discord情報をPlayroomKitのプロファイルに設定
