@@ -1,4 +1,5 @@
-import { useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import { useEffect, Component } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useSounds } from './hooks/useSounds';
 import type { GameSettings, Question } from './types';
