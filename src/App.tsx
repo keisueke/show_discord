@@ -676,6 +676,9 @@ function App() {
   // デバッグモードの状態管理（フックは条件分岐の前に配置）
   const [debugMode, setDebugMode] = useState(false);
   
+  // ロビー画面の定期更新用のカウンター（画像・名前の反映を確実にするため）
+  const [lobbyUpdateCounter, setLobbyUpdateCounter] = useState(0);
+  
   const { playSE, playBGM, toggleMute, muted } = useSounds();
   addDebugLog('[APP] useSounds initialized');
 
@@ -759,6 +762,18 @@ function App() {
       playSE('se_result');
     }
   }, [phase, playBGM, playSE, myself]);
+
+  // ロビー画面の定期更新（画像・名前の反映を確実にするため）
+  useEffect(() => {
+    if (phase !== 'LOBBY' || !myself) return;
+    
+    // 初回は即座に更新、その後は1秒ごとに更新
+    const interval = setInterval(() => {
+      setLobbyUpdateCounter(prev => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [phase, myself]);
 
   // デバッグ: phaseの値を確認（useEffectで実行して確実にログを出力）
   // レンダリング後に確実にログが表示されるようにする
@@ -854,6 +869,7 @@ function App() {
 
       {shouldRenderLobby && (
         <Lobby
+          key={lobbyUpdateCounter} // 定期更新をトリガーするためのkey
           players={players}
           myself={myself}
           adminId={adminId}
