@@ -28,6 +28,17 @@ export const useGameEngine = () => {
     // ----------------------
     const players = usePlayersList(true); // Auto-sorted
     const myself = myPlayer();
+    
+    // デバッグ: プレイヤー状態をログに出力
+    useEffect(() => {
+        console.log('[GAME ENGINE]', {
+            playersCount: players.length,
+            myselfExists: !!myself,
+            myselfId: myself?.id,
+            phase,
+            adminId
+        });
+    }, [players.length, myself, phase, adminId]);
 
     // ----------------------
     // Host Logic (Authority)
