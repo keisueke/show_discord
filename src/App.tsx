@@ -247,15 +247,6 @@ interface QuestionScreenProps {
   myAnswer: number | undefined;
   currentRound: number;
   maxRounds: number;
-}
-
-interface QuestionScreenProps {
-  question: Question | null;
-  questionerName: string;
-  onAnswer: (val: number) => void;
-  myAnswer: number | undefined;
-  currentRound: number;
-  maxRounds: number;
   isDoubleScore: boolean;
   timeLimit: number;
 }
