@@ -271,15 +271,67 @@ async function setDiscordProfile() {
       }
 
       // PlayroomKitのプロファイルを設定
-      // setProfileが存在しない場合は、型アサーションを使用
+      // 複数の方法を試す
+      let profileSet = false;
+      
+      // 方法1: setProfileメソッドを使用
       if ('setProfile' in player && typeof (player as any).setProfile === 'function') {
-        (player as any).setProfile(profileData);
-        debugLog('Discord profile set to PlayroomKit', profileData);
-      } else {
-        debugLog('setProfile method not available on player, trying alternative method');
-        // 代替方法: PlayroomKitの内部APIを使用する可能性がある
-        // または、discord: true オプションを使用する必要がある
-        debugLog('Profile data prepared but not set', profileData);
+        try {
+          (player as any).setProfile(profileData);
+          debugLog('Discord profile set via setProfile()', profileData);
+          profileSet = true;
+        } catch (e) {
+          debugLog('setProfile() failed', e instanceof Error ? e.message : 'Unknown');
+        }
+      }
+      
+      // 方法2: updateProfileメソッドを使用
+      if (!profileSet && 'updateProfile' in player && typeof (player as any).updateProfile === 'function') {
+        try {
+          (player as any).updateProfile(profileData);
+          debugLog('Discord profile set via updateProfile()', profileData);
+          profileSet = true;
+        } catch (e) {
+          debugLog('updateProfile() failed', e instanceof Error ? e.message : 'Unknown');
+        }
+      }
+      
+      // 方法3: profileプロパティを直接設定
+      if (!profileSet && 'profile' in player) {
+        try {
+          (player as any).profile = profileData;
+          debugLog('Discord profile set via direct property assignment', profileData);
+          profileSet = true;
+        } catch (e) {
+          debugLog('Direct profile assignment failed', e instanceof Error ? e.message : 'Unknown');
+        }
+      }
+      
+      // 方法4: _profile や内部プロパティを設定
+      if (!profileSet) {
+        try {
+          // PlayroomKitの内部実装を試す
+          const playerAny = player as any;
+          if (playerAny._profile !== undefined) {
+            playerAny._profile = profileData;
+            debugLog('Discord profile set via _profile', profileData);
+            profileSet = true;
+          } else if (playerAny.__profile !== undefined) {
+            playerAny.__profile = profileData;
+            debugLog('Discord profile set via __profile', profileData);
+            profileSet = true;
+          }
+        } catch (e) {
+          debugLog('Internal profile assignment failed', e instanceof Error ? e.message : 'Unknown');
+        }
+      }
+      
+      if (!profileSet) {
+        debugLog('All profile setting methods failed, profile data prepared but not set', {
+          profileData,
+          playerMethods: Object.getOwnPropertyNames(player),
+          playerPrototype: Object.getOwnPropertyNames(Object.getPrototypeOf(player))
+        });
       }
     } else {
       debugLog('Discord user information not available, using default profile');
