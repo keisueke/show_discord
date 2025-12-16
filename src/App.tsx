@@ -19,6 +19,7 @@ interface LobbyProps {
   onUpdateSettings: (settings: GameSettings) => void;
   onTransferAdmin: (newAdminId: string) => void;
   scores: Record<string, number>;
+  onRefresh?: () => void;
 }
 
 // エラーバウンダリーコンポーネント（Discord環境でもエラーを捕捉）
