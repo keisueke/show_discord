@@ -142,10 +142,12 @@ async function initApp() {
   // PlayroomKitの初期化（非ブロッキング）
   debugLog('Starting PlayroomKit init...');
   
+  // discord: true にするとプロキシ問題が発生するため、false に設定
+  // Discord情報は手動で設定する
   insertCoin({
     skipLobby: import.meta.env.MODE === 'development' || !isDiscordActivity,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
-    discord: isDiscordActivity  // Discord Activity内ではtrue
+    discord: false  // プロキシ問題を回避
   }).then(() => {
     debugLog('PlayroomKit initialized successfully');
     // PlayroomKit初期化後にDiscordプロファイルを設定
