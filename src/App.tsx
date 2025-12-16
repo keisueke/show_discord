@@ -21,6 +21,15 @@ interface LobbyProps {
 }
 
 const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores }: LobbyProps) => {
+  // デバッグログ
+  const debugDiv = document.getElementById('debug-log');
+  if (debugDiv) {
+    const time = new Date().toLocaleTimeString();
+    debugDiv.innerHTML += `<div>[${time}] [LOBBY] Component rendering - players: ${players.length}, adminId: ${adminId}, myselfId: ${myself.id}</div>`;
+    debugDiv.scrollTop = debugDiv.scrollHeight;
+  }
+  console.log('[LOBBY] Component rendering', { players: players.length, adminId, myselfId: myself.id });
+  
   const isAdmin = myself.id === adminId;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,7 +41,7 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
   };
 
   return (
-    <div className="screen lobby">
+    <div className="screen lobby" style={{ position: 'relative', zIndex: 1 }}>
       <h1>クイズいい線いきましょう！</h1>
 
       <div className="settings-panel">
