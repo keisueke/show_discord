@@ -369,6 +369,14 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
           const val = p.getState('answer') as number;
           const scoreChange = result.scoreChanges?.[p.id] || 0;
           const isWinner = scoreChange > 0;
+          
+          // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
+          const isMyself = p.id === myself.id;
+          const discordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
+          const profile = p.getProfile();
+          const displayName = discordProfile?.name || profile.name;
+          const displayColor = discordProfile?.color || profile.color;
+          const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#000';
 
           return (
             <motion.li
@@ -379,8 +387,8 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
               transition={{ delay: 1 + (i * 0.2) }}
             >
               <div className="player-info-result">
-                <span className="player-name" style={{ color: (p.getProfile().color as any).hex || '#000' }}>
-                  {p.getProfile().name}
+                <span className="player-name" style={{ color: colorHex }}>
+                  {displayName}
                 </span>
                 <span className="player-answer">{val}</span>
               </div>
