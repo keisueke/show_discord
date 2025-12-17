@@ -394,14 +394,21 @@ interface QuestionScreenProps {
   maxRounds: number;
   isDoubleScore: boolean;
   timeLimit: number;
+  isHost: boolean;
+  waitingForSync: boolean;
+  onForceStart: () => void;
+  players: any[];
+  questionSeq: number;
 }
 
-const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentRound, maxRounds, isDoubleScore, timeLimit }: QuestionScreenProps) => {
+const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentRound, maxRounds, isDoubleScore, timeLimit, isHost, waitingForSync, onForceStart, players, questionSeq }: QuestionScreenProps) => {
   const [remainingTime, setRemainingTime] = useState(timeLimit);
   const [isTimeUp, setIsTimeUp] = useState(false);
   const onAnswerRef = useRef(onAnswer);
   const questionTextRef = useRef<string | undefined>(undefined);
   const isInitializedRef = useRef(false);
+  const [syncWaitTime, setSyncWaitTime] = useState(0);
+  const FORCE_START_THRESHOLD = 10; // 10秒待ったら強制開始ボタンを表示
 
   // onAnswerを常に最新の値に更新
   useEffect(() => {
@@ -469,6 +476,35 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
     return () => clearInterval(interval);
   }, [question?.text, myAnswer, isTimeUp, timeLimit]);
 
+  // 同期待ちタイマー（ホスト用）
+  useEffect(() => {
+    if (!isHost || !waitingForSync) {
+      setSyncWaitTime(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSyncWaitTime(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isHost, waitingForSync]);
+
+  // 同期状態の計算
+  const getSyncStatus = () => {
+    return players.map(p => ({
+      id: p.id,
+      name: p.getState('discordProfile')?.name || p.getProfile()?.name || 'Unknown',
+      answerSeq: p.getState('answerSeq') as number | undefined,
+      hasAnswer: p.getState('answer') !== undefined,
+      isSynced: p.getState('answerSeq') === questionSeq
+    }));
+  };
+
+  const syncStatus = getSyncStatus();
+  const unsyncedPlayers = syncStatus.filter(p => !p.isSynced);
+  const canForceStart = isHost && waitingForSync && syncWaitTime >= FORCE_START_THRESHOLD;
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -490,6 +526,23 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
         </div>
         <h2>回答完了！</h2>
         <p>他のプレイヤーを待っています...</p>
+        
+        {/* 同期待ち状態の表示（ホスト用） */}
+        {isHost && waitingForSync && (
+          <div className="sync-wait-info">
+            <p className="sync-wait-text">⏳ 同期待ち中... ({syncWaitTime}秒)</p>
+            {unsyncedPlayers.length > 0 && (
+              <p className="unsynced-players">
+                未同期: {unsyncedPlayers.map(p => p.name).join(', ')}
+              </p>
+            )}
+            {canForceStart && (
+              <button className="btn-force-start" onClick={onForceStart}>
+                ⚡ 強制開始（同期待ちをスキップ）
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -1270,6 +1323,11 @@ function App() {
           maxRounds={settings.maxRounds}
           isDoubleScore={isDoubleScore}
           timeLimit={settings.timeLimit}
+          isHost={engine.isHost}
+          waitingForSync={engine.waitingForSync}
+          onForceStart={engine.forceStartReveal}
+          players={players}
+          questionSeq={engine.questionSeq}
         />
       )}
       {phase === 'ANSWERING' && (

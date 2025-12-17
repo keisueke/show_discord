@@ -241,6 +241,51 @@ button:disabled {
   color: #fff;
 }
 
+/* 同期待ち状態の表示 */
+.sync-wait-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 200, 0, 0.1);
+  border: 1px solid rgba(255, 200, 0, 0.3);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.sync-wait-text {
+  color: #ffcc00;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.unsynced-players {
+  color: #ff9999;
+  font-size: 0.9em;
+  margin-bottom: 0.75rem;
+}
+
+.btn-force-start {
+  padding: 0.75rem 1.5rem;
+  font-size: 1em;
+  font-weight: 600;
+  background: linear-gradient(135deg, #ff6b00, #ff4500);
+  border: none;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(255, 107, 0, 0.3);
+}
+
+.btn-force-start:hover {
+  background: linear-gradient(135deg, #ff8c00, #ff6347);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.4);
+}
+
+.btn-force-start:active {
+  transform: translateY(0);
+}
+
 .waiting-message {
   margin-bottom: 0;
   padding: 1rem;
