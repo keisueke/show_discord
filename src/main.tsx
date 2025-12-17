@@ -431,19 +431,64 @@ async function setDiscordProfile() {
         debugLog('All profile setting methods failed - Player keys', playerKeys.slice(0, 20));
         debugLog('All profile setting methods failed - Profile data', profileData);
         
-        // 方法5: getProfile()で取得したオブジェクトを直接変更
+        // 方法5: getProfile()で取得したオブジェクトを直接変更（Object.definePropertyを使用）
         try {
           const currentProfile = player.getProfile();
           debugLog('Current profile from getProfile()', currentProfile);
           
           // プロファイルオブジェクトのプロパティを直接変更
           if (currentProfile && typeof currentProfile === 'object') {
-            Object.assign(currentProfile, profileData);
-            debugLog('Discord profile set via Object.assign to getProfile() result', profileData);
+            // Object.assignでは書き込み不可プロパティが更新されない可能性があるため、
+            // Object.definePropertyを使用して確実に設定
+            if (profileData.name) {
+              try {
+                Object.defineProperty(currentProfile, 'name', {
+                  value: profileData.name,
+                  writable: true,
+                  configurable: true,
+                  enumerable: true
+                });
+                debugLog('Profile name set via defineProperty', profileData.name);
+              } catch (e) {
+                debugLog('Failed to set name via defineProperty', e);
+              }
+            }
+            
+            if (profileData.photo) {
+              try {
+                Object.defineProperty(currentProfile, 'photo', {
+                  value: profileData.photo,
+                  writable: true,
+                  configurable: true,
+                  enumerable: true
+                });
+                debugLog('Profile photo set via defineProperty', profileData.photo);
+              } catch (e) {
+                debugLog('Failed to set photo via defineProperty', e);
+              }
+            }
+            
+            if (profileData.color) {
+              try {
+                Object.defineProperty(currentProfile, 'color', {
+                  value: profileData.color,
+                  writable: true,
+                  configurable: true,
+                  enumerable: true
+                });
+                debugLog('Profile color set via defineProperty', profileData.color);
+              } catch (e) {
+                debugLog('Failed to set color via defineProperty', e);
+              }
+            }
+            
+            // 設定後のプロファイルを確認
+            const updatedProfile = player.getProfile();
+            debugLog('Profile after setting via defineProperty', updatedProfile);
             profileSet = true;
           }
         } catch (e) {
-          debugLog('Object.assign to getProfile() failed', e instanceof Error ? e.message : 'Unknown');
+          debugLog('defineProperty to getProfile() failed', e instanceof Error ? e.message : 'Unknown');
         }
         
         if (!profileSet) {
@@ -566,11 +611,25 @@ async function initApp() {
     debugLog('PlayroomKit initialization timeout (10s)', { promise: insertCoinPromise });
   }, 10000);
   
-  insertCoinPromise.then(() => {
+  insertCoinPromise.then(async () => {
     clearTimeout(timeoutId);
     debugLog('PlayroomKit initialized successfully');
     // PlayroomKit初期化後にDiscordプロファイルを設定
-    setDiscordProfile();
+    // 少し待ってから設定（PlayroomKitの内部状態が安定するまで）
+    await new Promise(resolve => setTimeout(resolve, 500));
+    debugLog('Setting Discord profile after PlayroomKit initialization');
+    await setDiscordProfile();
+    // 設定後にプロファイルを確認
+    try {
+      const { myPlayer } = await import('playroomkit');
+      const player = myPlayer();
+      if (player) {
+        const profile = player.getProfile();
+        debugLog('Final profile after setting', profile);
+      }
+    } catch (e) {
+      debugLog('Failed to verify profile after setting', e);
+    }
   }).catch((error) => {
     clearTimeout(timeoutId);
     debugLog('PlayroomKit init failed', { 
