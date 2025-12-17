@@ -492,16 +492,18 @@ async function initApp() {
   
   debugLog('Is Discord Activity?', isDiscordActivity);
 
-  // Discord SDKの初期化を非同期で開始
+  // Discord SDKの初期化を待機（ルームIDを決定するために必要）
   debugLog('Starting Discord SDK init...');
-  initDiscordSDK(isDiscordActivity).then((sdk) => {
-    if (sdk) {
+  let discordSdk: DiscordSDK | null = null;
+  try {
+    discordSdk = await initDiscordSDK(isDiscordActivity);
+    if (discordSdk) {
       // Discord情報をPlayroomKitに設定
       setDiscordProfile();
     }
-  }).catch((err) => {
-    debugLog('Discord SDK init failed', err?.message);
-  });
+  } catch (err) {
+    debugLog('Discord SDK init failed', err instanceof Error ? err.message : 'Unknown error');
+  }
 
   // PlayroomKitの初期化（非ブロッキング）
   debugLog('Starting PlayroomKit init...');
@@ -512,17 +514,50 @@ async function initApp() {
   // Reactアプリ側のロビー画面を使用
   const shouldSkipLobby = true; // 常にReactアプリ側のロビーを使用
   
+  // ルームIDを決定
+  let roomId: string | undefined = undefined;
+  
+  if (isDiscordActivity && instanceId) {
+    // Discord Activityの場合、instanceIdを使用してルームIDを生成
+    // 同じinstanceIdを持つユーザーは同じルームに入る
+    roomId = `discord-${instanceId}`;
+    debugLog('Using Discord instanceId as roomId', { instanceId, roomId });
+  } else if (isDiscordActivity && discordSdk) {
+    // Discord SDKからinstanceIdを取得を試みる
+    try {
+      const platform = (discordSdk as any).platform;
+      if (platform && platform.instanceId) {
+        roomId = `discord-${platform.instanceId}`;
+        debugLog('Using Discord SDK platform.instanceId as roomId', { instanceId: platform.instanceId, roomId });
+      }
+    } catch (e) {
+      debugLog('Failed to get instanceId from Discord SDK', e);
+    }
+  }
+  
+  // URLパラメータからroomIdを取得（手動でルームIDを指定する場合）
+  const urlRoomId = urlParams.get('roomId');
+  if (urlRoomId) {
+    roomId = urlRoomId;
+    debugLog('Using roomId from URL parameter', { roomId });
+  }
+  
   debugLog('Calling insertCoin...', {
     skipLobby: shouldSkipLobby,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
-    discord: false
+    discord: false,
+    roomId: roomId
   });
   
-  const insertCoinPromise = insertCoin({
+  // PlayroomKitのinsertCoinオプションを準備
+  const insertCoinOptions = {
     skipLobby: shouldSkipLobby,
     gameId: 'GLWLPW9PB5oKsi0GGQdf',
-    discord: false  // 一旦 false に戻してロビー画面を表示
-  });
+    discord: false,  // 一旦 false に戻してロビー画面を表示
+    ...(roomId && { roomCode: roomId })  // roomCodeとして指定（PlayroomKitの型定義に合わせる）
+  };
+  
+  const insertCoinPromise = insertCoin(insertCoinOptions);
   
   debugLog('insertCoin called, waiting for promise...');
   
