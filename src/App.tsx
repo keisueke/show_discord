@@ -18,7 +18,6 @@ interface LobbyProps {
   settings: GameSettings;
   onUpdateSettings: (settings: GameSettings) => void;
   onTransferAdmin: (newAdminId: string) => void;
-  scores: Record<string, number>;
   onRefresh?: () => void;
 }
 
@@ -74,7 +73,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, scores, onRefresh }: LobbyProps) => {
+const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, onRefresh }: LobbyProps) => {
   // タブの状態管理
   const [activeTab, setActiveTab] = useState<'participants' | 'settings' | 'howto'>('participants');
   
@@ -229,7 +228,6 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
                       <span className="player-name-text">{displayName}</span>
                       {p.id === myself.id && <span className="you-badge">(You)</span>}
                     </span>
-                    <span className="score-badge">Pts: {scores[p.id] || 0}</span>
                   </span>
                   {isAdmin && p.id !== myself.id && (
                     <button
@@ -338,7 +336,7 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
 
       {/* ゲーム開始ボタン（全タブ共通） */}
       {activeTab !== 'howto' && (
-        <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+        <div className="game-start-container">
           {isAdmin ? (
             <button onClick={onStart} className="btn-start">ゲーム開始</button>
           ) : (
@@ -787,7 +785,7 @@ function App() {
     );
   }
   
-  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, scores, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound;
+  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound;
   
   try {
     ({
@@ -801,7 +799,6 @@ function App() {
       currentQuestion,
       result,
       currentRound,
-      scores,
       isDoubleScore,
       startGame,
       updateSettings,
@@ -969,7 +966,6 @@ function App() {
           onStart={startGame}
           onUpdateSettings={updateSettings}
           onTransferAdmin={transferAdmin}
-          scores={scores}
           onRefresh={handleRefreshLobby}
         />
       )}
