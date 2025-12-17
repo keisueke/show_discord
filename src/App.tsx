@@ -185,16 +185,20 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
           <div className="players-list">
             <h3>参加者 ({players.length}人)</h3>
             {players.map((p) => {
-              // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
+              // PlayroomKitのプロファイルを優先的に使用（すべてのプレイヤーに対して）
+              const profile = p.getProfile();
+              
+              // 自分自身の場合のみ、window.discordProfileをフォールバックとして使用
               const isMyself = p.id === myself.id;
               const discordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
-              const profile = p.getProfile();
-              const displayName = discordProfile?.name || profile.name;
-              const displayColor = discordProfile?.color || profile.color;
+              
+              // プロファイル情報を決定（PlayroomKitのプロファイルを優先）
+              const displayName = profile.name || discordProfile?.name || 'Player';
+              const displayColor = profile.color || discordProfile?.color;
               const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#ccc';
               
-              // アバター画像を取得（Discord情報またはPlayroomKitプロファイルから）
-              const avatarUrl = discordProfile?.photo || profile.photo || null;
+              // アバター画像を取得（PlayroomKitのプロファイルを優先）
+              const avatarUrl = profile.photo || discordProfile?.photo || null;
               
               return (
                 <div key={p.id} className="player-badge" style={{ backgroundColor: colorHex }}>
@@ -636,12 +640,16 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
           const scoreChange = result.scoreChanges?.[p.id] || 0;
           const isWinner = scoreChange > 0;
           
-          // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
+          // PlayroomKitのプロファイルを優先的に使用（すべてのプレイヤーに対して）
+          const profile = p.getProfile();
+          
+          // 自分自身の場合のみ、window.discordProfileをフォールバックとして使用
           const isMyself = p.id === myself.id;
           const discordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
-          const profile = p.getProfile();
-          const displayName = discordProfile?.name || profile.name;
-          const displayColor = discordProfile?.color || profile.color;
+          
+          // プロファイル情報を決定（PlayroomKitのプロファイルを優先）
+          const displayName = profile.name || discordProfile?.name || 'Player';
+          const displayColor = profile.color || discordProfile?.color;
           const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#000';
 
           // 正解した人（+100pt以上の人）をハイライト（同期を確実にするため）
@@ -815,12 +823,16 @@ const RankingScreen = ({ players, scores, onBackToLobby, isAdmin, playSE }: Rank
           const rank = index + 1;
           const finalScore = scores[p.id] || 0;
           
-          // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
+          // PlayroomKitのプロファイルを優先的に使用（すべてのプレイヤーに対して）
+          const profile = p.getProfile();
+          
+          // 自分自身の場合のみ、window.discordProfileをフォールバックとして使用
           const isMyself = p.id === myself.id;
           const discordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
-          const profile = p.getProfile();
-          const displayName = discordProfile?.name || profile.name;
-          const displayColor = discordProfile?.color || profile.color;
+          
+          // プロファイル情報を決定（PlayroomKitのプロファイルを優先）
+          const displayName = profile.name || discordProfile?.name || 'Player';
+          const displayColor = profile.color || discordProfile?.color;
           const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#ccc';
 
           return (
@@ -834,7 +846,8 @@ const RankingScreen = ({ players, scores, onBackToLobby, isAdmin, playSE }: Rank
               <div className="rank-badge">{getRankIcon(rank)}</div>
               <div className="player-info-ranking">
                 {(() => {
-                  const avatarUrl = discordProfile?.photo || profile.photo || null;
+                  // アバター画像を取得（PlayroomKitのプロファイルを優先）
+                  const avatarUrl = profile.photo || discordProfile?.photo || null;
                   return avatarUrl ? (
                     <img 
                       src={avatarUrl} 
