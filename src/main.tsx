@@ -582,17 +582,20 @@ async function initApp() {
   let roomId: string | undefined = undefined;
   
   if (isDiscordActivity && instanceId) {
-    // Discord Activityの場合、instanceIdを使用してルームIDを生成
-    // 同じinstanceIdを持つユーザーは同じルームに入る
-    roomId = `discord-${instanceId}`;
-    debugLog('Using Discord instanceId as roomId', { instanceId, roomId });
+    // Discord Activityの場合、instanceIdとタイムスタンプを使用してルームIDを生成
+    // これにより、アクティビティを開くたびに新しいセッションが作成される
+    // 同じアクティビティインスタンス内のユーザーは、同じinstanceIdとタイムスタンプを持つため、同じルームに入る
+    const sessionTimestamp = Date.now();
+    roomId = `discord-${instanceId}-${sessionTimestamp}`;
+    debugLog('Using Discord instanceId with timestamp as roomId', { instanceId, sessionTimestamp, roomId });
   } else if (isDiscordActivity && discordSdk) {
     // Discord SDKからinstanceIdを取得を試みる
     try {
       const platform = (discordSdk as any).platform;
       if (platform && platform.instanceId) {
-        roomId = `discord-${platform.instanceId}`;
-        debugLog('Using Discord SDK platform.instanceId as roomId', { instanceId: platform.instanceId, roomId });
+        const sessionTimestamp = Date.now();
+        roomId = `discord-${platform.instanceId}-${sessionTimestamp}`;
+        debugLog('Using Discord SDK platform.instanceId with timestamp as roomId', { instanceId: platform.instanceId, sessionTimestamp, roomId });
       }
     } catch (e) {
       debugLog('Failed to get instanceId from Discord SDK', e);
