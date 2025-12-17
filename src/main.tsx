@@ -536,15 +536,18 @@ async function setDiscordProfile() {
         }
         
         if (!profileSet) {
-          debugLog('All profile setting methods failed - Final attempt: using setState');
-          // 方法6: setStateを使用してプロファイル情報を保存
-          try {
-            player.setState('discordProfile', profileData);
-            debugLog('Discord profile saved to state (may need custom rendering)', profileData);
-          } catch (e) {
-            debugLog('setState for profile failed', e instanceof Error ? e.message : 'Unknown');
-          }
+          debugLog('All profile setting methods failed');
         }
+      }
+      
+      // 重要: player.setState を使用してDiscordプロファイルを他のプレイヤーに同期
+      // PlayroomKitのgetProfile()は読み取り専用の可能性があるため、
+      // setStateで保存してUI側で読み取る方式を採用
+      try {
+        player.setState('discordProfile', profileData);
+        debugLog('Discord profile saved to player state for sync', profileData);
+      } catch (e) {
+        debugLog('setState for discordProfile failed', e instanceof Error ? e.message : 'Unknown');
       }
     } else {
       debugLog('Discord user information not available, using default profile');
