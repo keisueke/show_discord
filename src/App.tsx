@@ -581,19 +581,33 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
   const sortedPlayers = [...players].sort((a, b) => (a.getState('answer') as number) - (b.getState('answer') as number));
   const myself = myPlayer();
 
-  // Trigger confetti and sound if I got points
+  // 正解発表時に効果音を再生（中央値が表示されるタイミング）
   useEffect(() => {
     const myId = myPlayer().id;
+    const myAnswer = myself.getState('answer') as number | undefined;
     const myScoreChange = result.scoreChanges?.[myId] || 0;
-    if (myScoreChange > 0) {
-      playSE('se_cheer');
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-    }
-  }, [result, playSE]);
+    
+    // 中央値が表示されるタイミング（delay: 0.5秒後）に合わせて効果音を再生
+    const soundTimeout = setTimeout(() => {
+      if (myAnswer !== undefined && result.median !== undefined) {
+        // 正解した場合（自分の回答が中央値と一致）
+        if (myAnswer === result.median) {
+          playSE('se_result_normal');
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+        }
+        // マイナス点数の場合
+        else if (myScoreChange < 0) {
+          playSE('se_buzzer');
+        }
+      }
+    }, 500); // 中央値のアニメーション開始タイミングに合わせる
+
+    return () => clearTimeout(soundTimeout);
+  }, [result, myself, playSE]);
 
   return (
     <motion.div
@@ -1034,14 +1048,7 @@ function App() {
     if (phase === 'QUESTION') {
       playSE('se_question');
     }
-    if (phase === 'REVEAL') {
-      // 2倍ラウンドかどうかで効果音を切り替え
-      if (isDoubleScore) {
-        playSE('se_result_double');
-      } else {
-        playSE('se_result_normal');
-      }
-    }
+    // REVEALフェーズでの効果音はResultScreenコンポーネントで個別に処理
   }, [phase, playBGM, playSE, myself, isDoubleScore]);
 
   // ロビー画面の定期更新（画像・名前の反映を確実にするため）
