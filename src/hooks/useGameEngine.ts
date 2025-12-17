@@ -85,6 +85,29 @@ export const useGameEngine = () => {
 
     }, [players, isHost()]); // Re-run when players list changes
 
+    // Handle host disconnection and transfer admin to remaining players
+    useEffect(() => {
+        // ホストが切断された場合、新しいホストが自動的に選ばれる
+        // 新しいホストがadminIdを更新する必要がある
+        if (!isHost()) return;
+
+        const currentIds = players.map(p => p.id);
+        
+        // adminIdが現在のプレイヤーリストに存在しない場合、新しいホストを選ぶ
+        if (adminId && !currentIds.includes(adminId)) {
+            console.log('[HOST TRANSFER] Previous admin disconnected, transferring to new host');
+            if (players.length > 0) {
+                // 残っているプレイヤーの最初の人を新しいadminにする
+                const newAdminId = players[0].id;
+                setAdminId(newAdminId);
+                console.log('[HOST TRANSFER] New admin set:', newAdminId);
+            } else {
+                // プレイヤーがいない場合はnullに設定
+                setAdminId(null);
+            }
+        }
+    }, [players, adminId, isHost()]);
+
     // Update Scores Helper
     const updateScores = (changes: Record<string, number>) => {
         const newScores = { ...scores };
@@ -98,79 +121,115 @@ export const useGameEngine = () => {
     useEffect(() => {
         if (!isHost() || phase !== 'QUESTION') return;
 
-        const allAnswered = players.length > 0 && players.every(p => p.getState('answer') !== undefined);
-        if (allAnswered) {
-            // Move to Reveal
-            const answerValues = players.map(p => ({
+        // 回答状態の変更を監視するために、各プレイヤーの回答状態を取得
+        const answerStates = players.map(p => ({
+            id: p.id,
+            answer: p.getState('answer') as number | undefined
+        }));
+
+        // デバッグログ: 回答状態を確認
+        console.log('[ANSWER CHECK]', {
+            playersCount: players.length,
+            answerStates: answerStates.map(a => ({ id: a.id, hasAnswer: a.answer !== undefined })),
+            allAnswered: answerStates.every(a => a.answer !== undefined)
+        });
+
+        // 回答チェックの実行を遅延させ、状態の同期を待つ
+        const checkTimeout = setTimeout(() => {
+            // 再度回答状態を確認（状態の同期を待った後）
+            const currentAnswerStates = players.map(p => ({
                 id: p.id,
-                val: p.getState('answer') as number
-            })).sort((a, b) => a.val - b.val);
+                answer: p.getState('answer') as number | undefined
+            }));
 
-            // Calculate Median
-            const mid = Math.floor(answerValues.length / 2);
-            let median = 0;
-            if (answerValues.length > 0) {
-                median = answerValues.length % 2 !== 0 ? answerValues[mid].val : (answerValues[mid - 1].val + answerValues[mid].val) / 2;
-            }
+            // すべてのプレイヤーが実際に回答したことを確認
+            const allAnswered = currentAnswerStates.length > 0 && 
+                               currentAnswerStates.every(a => a.answer !== undefined);
 
-            // Scoring Logic
-            const scoreChanges: Record<string, number> = {};
-            const multiplier = isDoubleScore ? 2 : 1;
+            console.log('[ANSWER CHECK DELAYED]', {
+                playersCount: currentAnswerStates.length,
+                answerStates: currentAnswerStates.map(a => ({ id: a.id, hasAnswer: a.answer !== undefined, answer: a.answer })),
+                allAnswered
+            });
 
-            if (answerValues.length >= 2) {
-                // 1. Calculate Distances
-                const withDist = answerValues.map(a => ({ ...a, dist: Math.abs(a.val - median) }));
-                const minDist = Math.min(...withDist.map(a => a.dist));
+            if (allAnswered) {
+                // Move to Reveal
+                const answerValues = currentAnswerStates
+                    .filter(a => a.answer !== undefined)
+                    .map(a => ({
+                        id: a.id,
+                        val: a.answer as number
+                    }))
+                    .sort((a, b) => a.val - b.val);
 
-                // 2. Find Winners (Closest to median)
-                // Bonus for exact match? Plan said +100 for closest.
-                // Let's stick to: Closest (+100 * multiplier).
-                withDist.filter(a => a.dist === minDist).forEach(winner => {
-                    scoreChanges[winner.id] = 100 * multiplier;
-                });
+                // Calculate Median
+                const mid = Math.floor(answerValues.length / 2);
+                let median = 0;
+                if (answerValues.length > 0) {
+                    median = answerValues.length % 2 !== 0 ? answerValues[mid].val : (answerValues[mid - 1].val + answerValues[mid].val) / 2;
+                }
 
-                // 3. Find Losers (Max/Min) - Only if 3+ players
-                if (players.length >= 3) {
-                    const maxVal = answerValues[answerValues.length - 1].val;
-                    const minVal = answerValues[0].val;
+                // Scoring Logic
+                const scoreChanges: Record<string, number> = {};
+                const multiplier = isDoubleScore ? 2 : 1;
 
-                    // Exemption: If Max == Median or Min == Median (i.e., everyone voted same), or Max == Min
-                    const isFlat = maxVal === minVal;
+                if (answerValues.length >= 2) {
+                    // 1. Calculate Distances
+                    const withDist = answerValues.map(a => ({ ...a, dist: Math.abs(a.val - median) }));
+                    const minDist = Math.min(...withDist.map(a => a.dist));
 
-                    if (!isFlat) {
-                        // Max Punishment
-                        if (maxVal !== median) {
-                            answerValues.filter(a => a.val === maxVal).forEach(p => {
-                                // If they are also a winner (closest), skip penalty?
-                                // Logic: If closest, they get +100. If they are also max (e.g. Median=50, Val=51 is closest & max),
-                                // typically they still get penalty or not?
-                                // "Good Line" usually penalizes pure max/min.
-                                // If you are closest AND max/min, usually you are safe?
-                                // Let's follow simple rule: Max/Min always penalty UNLESS it is the Median.
-                                if (Math.abs(p.val - median) !== minDist) {
-                                    scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
-                                }
-                            });
-                        }
-                        // Min Punishment
-                        if (minVal !== median) {
-                            answerValues.filter(a => a.val === minVal).forEach(p => {
-                                if (Math.abs(p.val - median) !== minDist) {
-                                    scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
-                                }
-                            });
+                    // 2. Find Winners (Closest to median)
+                    // Bonus for exact match? Plan said +100 for closest.
+                    // Let's stick to: Closest (+100 * multiplier).
+                    withDist.filter(a => a.dist === minDist).forEach(winner => {
+                        scoreChanges[winner.id] = 100 * multiplier;
+                    });
+
+                    // 3. Find Losers (Max/Min) - Only if 3+ players
+                    if (players.length >= 3) {
+                        const maxVal = answerValues[answerValues.length - 1].val;
+                        const minVal = answerValues[0].val;
+
+                        // Exemption: If Max == Median or Min == Median (i.e., everyone voted same), or Max == Min
+                        const isFlat = maxVal === minVal;
+
+                        if (!isFlat) {
+                            // Max Punishment
+                            if (maxVal !== median) {
+                                answerValues.filter(a => a.val === maxVal).forEach(p => {
+                                    // If they are also a winner (closest), skip penalty?
+                                    // Logic: If closest, they get +100. If they are also max (e.g. Median=50, Val=51 is closest & max),
+                                    // typically they still get penalty or not?
+                                    // "Good Line" usually penalizes pure max/min.
+                                    // If you are closest AND max/min, usually you are safe?
+                                    // Let's follow simple rule: Max/Min always penalty UNLESS it is the Median.
+                                    if (Math.abs(p.val - median) !== minDist) {
+                                        scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
+                                    }
+                                });
+                            }
+                            // Min Punishment
+                            if (minVal !== median) {
+                                answerValues.filter(a => a.val === minVal).forEach(p => {
+                                    if (Math.abs(p.val - median) !== minDist) {
+                                        scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
+                                    }
+                                });
+                            }
                         }
                     }
                 }
+
+                // Apply scores
+                updateScores(scoreChanges);
+
+                setResult({ median, scoreChanges });
+                setPhase('REVEAL');
             }
+        }, 200); // 200ms遅延させて状態の同期を待つ
 
-            // Apply scores
-            updateScores(scoreChanges);
-
-            setResult({ median, scoreChanges });
-            setPhase('REVEAL');
-        }
-    }, [players, phase]);
+        return () => clearTimeout(checkTimeout);
+    }, [players, phase, isDoubleScore, updateScores, setResult, setPhase]);
 
     // ----------------------
     // Actions (Exposed to UI)
@@ -206,6 +265,7 @@ export const useGameEngine = () => {
         setPhase('QUESTION');
         setCurrentQuestion(q);
         setQuestionCandidates([]); // Clear candidates
+        RPC.call('resetAnswers', {}, RPC.Mode.ALL);
     };
 
     const submitAnswer = (val: number) => {
@@ -222,11 +282,8 @@ export const useGameEngine = () => {
         const nextR = isCycleComplete ? currentRound + 1 : currentRound;
 
         if (nextR > settings.maxRounds && isCycleComplete) {
-            // Game Over -> Lobby
-            setPhase('LOBBY');
-            setCurrentRound(0);
-            setQuestionerId(null);
-            setResult(null);
+            // Game Over -> Ranking
+            setPhase('RANKING');
         } else {
             // Next Question
             setPhase('QUESTION_SELECTION');
@@ -241,6 +298,16 @@ export const useGameEngine = () => {
 
             RPC.call('resetAnswers', {}, RPC.Mode.ALL);
         }
+    };
+
+    const backToLobby = () => {
+        if (!isHost()) return;
+        setPhase('LOBBY');
+        setCurrentRound(0);
+        setQuestionerId(null);
+        setResult(null);
+        setCurrentQuestion(null);
+        setQuestionCandidates([]);
     };
 
     // Helper
@@ -272,6 +339,7 @@ export const useGameEngine = () => {
         selectQuestion,
         submitAnswer,
         nextRound,
+        backToLobby,
 
         // Utils
         isHost: isHost()

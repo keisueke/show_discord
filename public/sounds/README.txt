@@ -4,13 +4,16 @@
 配置するだけで、ゲーム内で自動的に再生されます。
 
 ### BGM
-- `bgm_lobby.mp3` : ロビー画面で流れるBGM
+- `bgm_lobby_1.mp3` : ロビー画面で流れるBGM（1曲目、ランダム再生）
+- `bgm_lobby_2.mp3` : ロビー画面で流れるBGM（2曲目、ランダム再生）
 - `bgm_game.mp3` : ゲームプレイ中に流れるBGM
 
 ### SE (効果音)
 - `se_start.mp3` : ゲーム開始時
 - `se_question.mp3` : 「問題」が表示された時（デデン！）
-- `se_result.mp3` : 結果発表画面になった時
+- `se_result.mp3` : 結果発表画面になった時（後方互換性のため残しています）
+- `se_result_normal.mp3` : 結果発表画面になった時（通常ラウンド）
+- `se_result_double.mp3` : 結果発表画面になった時（2倍ラウンド）
 - `se_cheer.mp3` : 自分が得点した時（拍手や歓声）
 - `se_buzzer.mp3` : （未実装ですが、不正解音として予約）
 - `se_drumroll.mp3` : （将来用: 結果発表前のドラムロール）

@@ -1,4 +1,4 @@
-import { useEffect, useState, Component } from 'react';
+import { useEffect, useState, useRef, Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { useGameEngine } from './hooks/useGameEngine';
 import { useSounds } from './hooks/useSounds';
@@ -19,6 +19,8 @@ interface LobbyProps {
   onUpdateSettings: (settings: GameSettings) => void;
   onTransferAdmin: (newAdminId: string) => void;
   onRefresh?: () => void;
+  activeTab: 'participants' | 'settings' | 'howto';
+  onTabChange: (tab: 'participants' | 'settings' | 'howto') => void;
 }
 
 // エラーバウンダリーコンポーネント（Discord環境でもエラーを捕捉）
@@ -73,9 +75,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, onRefresh }: LobbyProps) => {
-  // タブの状態管理
-  const [activeTab, setActiveTab] = useState<'participants' | 'settings' | 'howto'>('participants');
+const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, onRefresh, activeTab, onTabChange }: LobbyProps) => {
+  const [logoLoaded, setLogoLoaded] = useState(false);
   
   // デバッグログ出力ヘルパー関数（Appコンポーネントと同じ実装）
   const addDebugLog = (message: string, isError = false) => {
@@ -141,25 +142,38 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
 
   return (
     <div className="screen lobby" style={{ position: 'relative', zIndex: 1 }}>
-      <h1>クイズ！ど真ん中</h1>
+      <div className="logo-container">
+        <img 
+          src="/logo.png" 
+          alt="クイズ！ど真ん中" 
+          className="logo" 
+          onLoad={() => setLogoLoaded(true)}
+          onError={(e) => {
+            // ロゴファイルが見つからない場合は非表示
+            (e.target as HTMLImageElement).style.display = 'none';
+            setLogoLoaded(false);
+          }} 
+        />
+      </div>
+      {!logoLoaded && <h1>クイズ！ど真ん中</h1>}
 
       {/* タブヘッダー */}
       <div className="lobby-tabs">
         <button
           className={`tab-button ${activeTab === 'participants' ? 'active' : ''}`}
-          onClick={() => setActiveTab('participants')}
+          onClick={() => onTabChange('participants')}
         >
           参加者
         </button>
         <button
           className={`tab-button ${activeTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('settings')}
+          onClick={() => onTabChange('settings')}
         >
           設定
         </button>
         <button
           className={`tab-button ${activeTab === 'howto' ? 'active' : ''}`}
-          onClick={() => setActiveTab('howto')}
+          onClick={() => onTabChange('howto')}
         >
           遊び方
         </button>
@@ -169,30 +183,7 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
       {activeTab === 'participants' && (
         <div className="tab-content">
           <div className="players-list">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <h3 style={{ margin: 0 }}>参加者</h3>
-              {onRefresh && (
-                <button
-                  onClick={onRefresh}
-                  className="btn-refresh"
-                  title="参加者情報を更新"
-                  style={{
-                    background: 'rgba(100, 100, 100, 0.5)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    borderRadius: '4px',
-                    color: '#fff',
-                    padding: '0.3rem 0.6rem',
-                    fontSize: '0.9em',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.3rem'
-                  }}
-                >
-                  🔄 更新
-                </button>
-              )}
-            </div>
+            <h3>参加者 ({players.length}人)</h3>
             {players.map((p) => {
               // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
               const isMyself = p.id === myself.id;
@@ -393,14 +384,58 @@ interface QuestionScreenProps {
 const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentRound, maxRounds, isDoubleScore, timeLimit }: QuestionScreenProps) => {
   const [remainingTime, setRemainingTime] = useState(timeLimit);
   const [isTimeUp, setIsTimeUp] = useState(false);
+  const onAnswerRef = useRef(onAnswer);
+  const questionTextRef = useRef<string | undefined>(undefined);
+  const isInitializedRef = useRef(false);
+
+  // onAnswerを常に最新の値に更新
+  useEffect(() => {
+    onAnswerRef.current = onAnswer;
+  }, [onAnswer]);
+
+  // questionTextRefの初期化と問題変更の検出
+  useEffect(() => {
+    const currentQuestionText = question?.text;
+    const hasQuestionChanged = questionTextRef.current !== currentQuestionText;
+    
+    if (hasQuestionChanged || !isInitializedRef.current) {
+      questionTextRef.current = currentQuestionText;
+      isInitializedRef.current = true;
+      // 問題が変更されたときは状態をリセット
+      setRemainingTime(timeLimit);
+      setIsTimeUp(false);
+    }
+  }, [question?.text, timeLimit]);
+
+  // myAnswerがundefinedに変わったときに状態をリセット（回答がリセットされたとき）
+  useEffect(() => {
+    if (myAnswer === undefined && isInitializedRef.current) {
+      // 回答がリセットされたときは、タイマーと状態もリセット
+      // ただし、問題が変更されたときのリセットと重複しないように注意
+      const currentQuestionText = question?.text;
+      if (questionTextRef.current === currentQuestionText) {
+        // 同じ問題で回答がリセットされた場合のみリセット
+        setRemainingTime(timeLimit);
+        setIsTimeUp(false);
+      }
+    }
+  }, [myAnswer, question?.text, timeLimit]);
 
   // タイマーの実装
   useEffect(() => {
-    if (myAnswer !== undefined || isTimeUp) {
-      return; // 既に回答済みまたは時間切れの場合はタイマーを停止
+    // myAnswerがundefinedでない場合はタイマーを開始しない
+    if (myAnswer !== undefined) {
+      return;
     }
 
-    setRemainingTime(timeLimit); // タイマーをリセット
+    // 問題が初期化されていない場合はタイマーを開始しない
+    if (!isInitializedRef.current || !question?.text) {
+      return;
+    }
+
+    if (isTimeUp) {
+      return; // 時間切れの場合はタイマーを停止
+    }
 
     const interval = setInterval(() => {
       setRemainingTime((prev) => {
@@ -408,7 +443,7 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
           setIsTimeUp(true);
           // 時間切れの場合は0を自動送信
           setTimeout(() => {
-            onAnswer(0);
+            onAnswerRef.current(0);
           }, 100);
           return 0;
         }
@@ -417,7 +452,7 @@ const QuestionScreen = ({ question, questionerName, onAnswer, myAnswer, currentR
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [question, myAnswer, isTimeUp, timeLimit, onAnswer]);
+  }, [question?.text, myAnswer, isTimeUp, timeLimit]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -659,6 +694,154 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
   );
 };
 
+interface RankingScreenProps {
+  players: PlayroomPlayer[];
+  scores: Record<string, number>;
+  onBackToLobby: () => void;
+  isAdmin: boolean;
+  playSE: (name: any) => void;
+}
+
+const RankingScreen = ({ players, scores, onBackToLobby, isAdmin, playSE }: RankingScreenProps) => {
+  const myself = myPlayer();
+
+  // スコアでソート（降順）
+  const rankedPlayers = [...players].sort((a, b) => {
+    const scoreA = scores[a.id] || 0;
+    const scoreB = scores[b.id] || 0;
+    return scoreB - scoreA;
+  });
+
+  // 1位のプレイヤーに紙吹雪エフェクト
+  useEffect(() => {
+    if (rankedPlayers.length > 0) {
+      const winnerId = rankedPlayers[0].id;
+      if (winnerId === myself.id) {
+        playSE('se_cheer');
+        confetti({
+          particleCount: 200,
+          spread: 100,
+          origin: { y: 0.3 }
+        });
+      }
+    }
+  }, [rankedPlayers, myself, playSE]);
+
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return '🥇';
+      case 2:
+        return '🥈';
+      case 3:
+        return '🥉';
+      default:
+        return `${rank}位`;
+    }
+  };
+
+  const getRankClass = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return 'rank-first';
+      case 2:
+        return 'rank-second';
+      case 3:
+        return 'rank-third';
+      default:
+        return '';
+    }
+  };
+
+  return (
+    <motion.div
+      className="screen ranking"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+    >
+      <motion.h2
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", delay: 0.2 }}
+      >
+        最終順位
+      </motion.h2>
+
+      <ul className="ranking-list">
+        {rankedPlayers.map((p, index) => {
+          const rank = index + 1;
+          const finalScore = scores[p.id] || 0;
+          
+          // Discord情報がある場合は優先的に使用（自分自身の場合のみ）
+          const isMyself = p.id === myself.id;
+          const discordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
+          const profile = p.getProfile();
+          const displayName = discordProfile?.name || profile.name;
+          const displayColor = discordProfile?.color || profile.color;
+          const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#ccc';
+
+          return (
+            <motion.li
+              key={p.id}
+              className={`ranking-item ${getRankClass(rank)} ${isMyself ? 'myself' : ''}`}
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.5 + (index * 0.15) }}
+            >
+              <div className="rank-badge">{getRankIcon(rank)}</div>
+              <div className="player-info-ranking">
+                {(() => {
+                  const avatarUrl = discordProfile?.photo || profile.photo || null;
+                  return avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt={displayName}
+                      className="player-avatar-ranking"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const placeholder = target.nextElementSibling as HTMLElement;
+                        if (placeholder && placeholder.classList.contains('player-avatar-placeholder-ranking')) {
+                          placeholder.style.display = 'flex';
+                        }
+                      }}
+                    />
+                  ) : null;
+                })()}
+                <div 
+                  className="player-avatar-placeholder-ranking"
+                  style={{ display: (discordProfile?.photo || profile.photo) ? 'none' : 'flex' }}
+                >
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+                <span className="player-name-ranking" style={{ color: colorHex }}>
+                  {displayName}
+                  {isMyself && <span className="you-badge-ranking">(You)</span>}
+                </span>
+              </div>
+              <div className="final-score">{finalScore}pt</div>
+            </motion.li>
+          );
+        })}
+      </ul>
+
+      {isAdmin ? (
+        <motion.button
+          onClick={onBackToLobby}
+          className="btn-back-to-lobby"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 1.5 }}
+        >
+          ロビーに戻る
+        </motion.button>
+      ) : (
+        <div className="waiting-next">ホストがロビーに戻るのを待っています...</div>
+      )}
+    </motion.div>
+  );
+};
+
 function App() {
   // デバッグログ出力ヘルパー関数（毎回debugDivを取得・作成）
   // エラーハンドリングを強化し、エラーが発生した場合に確実に捕捉する
@@ -763,6 +946,9 @@ function App() {
   // ロビー画面の定期更新用のカウンター（画像・名前の反映を確実にするため）
   const [lobbyUpdateCounter, setLobbyUpdateCounter] = useState(0);
   
+  // ロビー画面のタブ状態管理（更新時も保持されるようにAppで管理）
+  const [lobbyActiveTab, setLobbyActiveTab] = useState<'participants' | 'settings' | 'howto'>('participants');
+  
   // 手動更新用の関数
   const handleRefreshLobby = () => {
     setLobbyUpdateCounter(prev => prev + 1);
@@ -785,7 +971,7 @@ function App() {
     );
   }
   
-  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound;
+  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound, backToLobby, scores;
   
   try {
     ({
@@ -800,12 +986,14 @@ function App() {
       result,
       currentRound,
       isDoubleScore,
+      scores,
       startGame,
       updateSettings,
       transferAdmin,
       selectQuestion,
       submitAnswer,
-      nextRound
+      nextRound,
+      backToLobby
     } = engine);
     
     addDebugLog(`[APP] Engine state extracted - phase: ${phase}, players: ${players.length}, myself: ${!!myself}`);
@@ -847,9 +1035,14 @@ function App() {
       playSE('se_question');
     }
     if (phase === 'REVEAL') {
-      playSE('se_result');
+      // 2倍ラウンドかどうかで効果音を切り替え
+      if (isDoubleScore) {
+        playSE('se_result_double');
+      } else {
+        playSE('se_result_normal');
+      }
     }
-  }, [phase, playBGM, playSE, myself]);
+  }, [phase, playBGM, playSE, myself, isDoubleScore]);
 
   // ロビー画面の定期更新（画像・名前の反映を確実にするため）
   // 5秒間隔で更新（目がチカチカしないように）
@@ -930,6 +1123,27 @@ function App() {
   return (
     <div className="app-container">
       <div style={{ position: 'fixed', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: '10px' }}>
+        {phase === 'LOBBY' && (
+          <button
+            className="btn-refresh"
+            onClick={handleRefreshLobby}
+            style={{ 
+              background: 'rgba(100, 100, 100, 0.5)', 
+              padding: '5px 10px', 
+              color: 'white', 
+              border: '1px solid rgba(255, 255, 255, 0.3)', 
+              borderRadius: '4px', 
+              cursor: 'pointer',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem'
+            }}
+            title="参加者情報を更新"
+          >
+            🔄 更新
+          </button>
+        )}
         <button
           className="mute-btn"
           onClick={toggleMute}
@@ -967,6 +1181,8 @@ function App() {
           onUpdateSettings={updateSettings}
           onTransferAdmin={transferAdmin}
           onRefresh={handleRefreshLobby}
+          activeTab={lobbyActiveTab}
+          onTabChange={setLobbyActiveTab}
         />
       )}
       {phase === 'QUESTION_SELECTION' && (
@@ -999,6 +1215,15 @@ function App() {
           onNext={nextRound}
           isAdmin={isAdmin}
           isDoubleScore={isDoubleScore}
+          playSE={playSE}
+        />
+      )}
+      {phase === 'RANKING' && (
+        <RankingScreen
+          players={players}
+          scores={scores}
+          onBackToLobby={backToLobby}
+          isAdmin={isAdmin}
           playSE={playSE}
         />
       )}
