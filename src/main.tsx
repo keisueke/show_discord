@@ -139,22 +139,29 @@ declare global {
 
 // Discordユーザー情報を取得してPlayroomKitに設定
 async function setDiscordProfile() {
+  debugLog('setDiscordProfile() called');
+  
   if (!discordSdkInstance) {
     debugLog('Discord SDK not initialized, skipping profile setup');
     return;
   }
 
   try {
+    debugLog('Getting PlayroomKit myPlayer()...');
     // PlayroomKitのmyPlayer()を取得（初期化後である必要がある）
     const { myPlayer } = await import('playroomkit');
     const player = myPlayer();
     
     if (!player) {
-      debugLog('PlayroomKit player not available yet, retrying...');
+      debugLog('PlayroomKit player not available yet, retrying in 1s...');
       // 少し待ってから再試行
       setTimeout(() => setDiscordProfile(), 1000);
       return;
     }
+    
+    debugLog('Player found, getting profile...');
+    const currentProfile = player.getProfile();
+    debugLog('Current profile', currentProfile);
 
     // Discord Activity内では、認証済みのユーザー情報を取得
     // まず認証を試みる（既に認証済みの場合はスキップされる）
@@ -363,6 +370,18 @@ async function setDiscordProfile() {
       }
       
       debugLog('Discord profile saved to window.discordProfile', window.discordProfile);
+      
+      // window.discordProfileの設定を確認
+      if (window.discordProfile) {
+        debugLog('window.discordProfile verified', {
+          hasName: !!window.discordProfile.name,
+          hasPhoto: !!window.discordProfile.photo,
+          hasColor: !!window.discordProfile.color,
+          name: window.discordProfile.name
+        });
+      } else {
+        debugLog('ERROR: window.discordProfile is not set!');
+      }
 
       // PlayroomKitのプロファイルを設定
       // 複数の方法を試す
@@ -543,8 +562,8 @@ async function initApp() {
   try {
     discordSdk = await initDiscordSDK(isDiscordActivity);
     if (discordSdk) {
-      // Discord情報をPlayroomKitに設定
-      setDiscordProfile();
+      // Discord情報はPlayroomKitの初期化後に設定する
+      debugLog('Discord SDK initialized, will set profile after PlayroomKit init');
     }
   } catch (err) {
     debugLog('Discord SDK init failed', err instanceof Error ? err.message : 'Unknown error');
@@ -618,17 +637,26 @@ async function initApp() {
     // 少し待ってから設定（PlayroomKitの内部状態が安定するまで）
     await new Promise(resolve => setTimeout(resolve, 500));
     debugLog('Setting Discord profile after PlayroomKit initialization');
-    await setDiscordProfile();
-    // 設定後にプロファイルを確認
+    
     try {
-      const { myPlayer } = await import('playroomkit');
-      const player = myPlayer();
-      if (player) {
-        const profile = player.getProfile();
-        debugLog('Final profile after setting', profile);
+      await setDiscordProfile();
+      
+      // 設定後にプロファイルを確認
+      try {
+        const { myPlayer } = await import('playroomkit');
+        const player = myPlayer();
+        if (player) {
+          const profile = player.getProfile();
+          debugLog('Final profile after setting', profile);
+        }
+      } catch (e) {
+        debugLog('Failed to verify profile after setting', e);
       }
-    } catch (e) {
-      debugLog('Failed to verify profile after setting', e);
+    } catch (error) {
+      debugLog('Failed to set Discord profile in initApp', error instanceof Error ? error.message : 'Unknown error');
+      if (error instanceof Error && error.stack) {
+        debugLog('Error stack in initApp', error.stack);
+      }
     }
   }).catch((error) => {
     clearTimeout(timeoutId);
