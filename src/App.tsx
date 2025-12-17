@@ -644,10 +644,13 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
           const displayColor = discordProfile?.color || profile.color;
           const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#000';
 
+          // 正解した人（+100pt以上の人）をハイライト（同期を確実にするため）
+          const isCorrect = scoreChange > 0;
+
           return (
             <motion.li
               key={p.id}
-              className={`result-item ${val === result.median ? 'highlight' : ''}`}
+              className={`result-item ${isCorrect ? 'highlight' : ''}`}
               initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 1 + (i * 0.2) }}
@@ -718,6 +721,7 @@ interface RankingScreenProps {
 
 const RankingScreen = ({ players, scores, onBackToLobby, isAdmin, playSE }: RankingScreenProps) => {
   const myself = myPlayer();
+  const [showRanking, setShowRanking] = useState(false);
 
   // スコアでソート（降順）
   const rankedPlayers = [...players].sort((a, b) => {
@@ -726,20 +730,36 @@ const RankingScreen = ({ players, scores, onBackToLobby, isAdmin, playSE }: Rank
     return scoreB - scoreA;
   });
 
-  // 1位のプレイヤーに紙吹雪エフェクト
+  // ドラムロール効果音を再生し、終了後に画面を表示
   useEffect(() => {
-    if (rankedPlayers.length > 0) {
-      const winnerId = rankedPlayers[0].id;
-      if (winnerId === myself.id) {
+    // ドラムロール効果音を再生
+    playSE('se_drumroll');
+    
+    // 2秒後に画面を表示
+    const showTimeout = setTimeout(() => {
+      setShowRanking(true);
+    }, 2000);
+
+    return () => clearTimeout(showTimeout);
+  }, [playSE]);
+
+  // 1位のプレイヤーに紙吹雪エフェクト（画面表示後）
+  useEffect(() => {
+    if (!showRanking || rankedPlayers.length === 0) return;
+    
+    const winnerId = rankedPlayers[0].id;
+    if (winnerId === myself.id) {
+      // 画面表示後、少し遅延させて紙吹雪を表示
+      setTimeout(() => {
         playSE('se_cheer');
         confetti({
           particleCount: 200,
           spread: 100,
           origin: { y: 0.3 }
         });
-      }
+      }, 500);
     }
-  }, [rankedPlayers, myself, playSE]);
+  }, [showRanking, rankedPlayers, myself, playSE]);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -766,6 +786,15 @@ const RankingScreen = ({ players, scores, onBackToLobby, isAdmin, playSE }: Rank
         return '';
     }
   };
+
+  // ドラムロール中は画面を非表示
+  if (!showRanking) {
+    return (
+      <div className="screen ranking" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <div style={{ fontSize: '2em', opacity: 0.7 }}>🎵</div>
+      </div>
+    );
+  }
 
   return (
     <motion.div

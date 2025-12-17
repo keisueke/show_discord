@@ -119,7 +119,7 @@ export const useGameEngine = () => {
 
     // Check Answers Logic (Host Only)
     useEffect(() => {
-        if (!isHost() || phase !== 'QUESTION') return;
+        if (!isHost() || phase !== 'QUESTION' || !currentQuestion) return;
 
         // 回答状態の変更を監視するために、各プレイヤーの回答状態を取得
         const answerStates = players.map(p => ({
@@ -127,109 +127,187 @@ export const useGameEngine = () => {
             answer: p.getState('answer') as number | undefined
         }));
 
-        // デバッグログ: 回答状態を確認
-        console.log('[ANSWER CHECK]', {
-            playersCount: players.length,
-            answerStates: answerStates.map(a => ({ id: a.id, hasAnswer: a.answer !== undefined })),
-            allAnswered: answerStates.every(a => a.answer !== undefined)
-        });
-
-        // 回答チェックの実行を遅延させ、状態の同期を待つ
-        const checkTimeout = setTimeout(() => {
-            // 再度回答状態を確認（状態の同期を待った後）
+        // 問題が変わった直後は、すべてのプレイヤーが回答をリセットしているか確認
+        // 同期が確実に取れるまでポーリングで待つ
+        const checkResetStatus = () => {
+            const currentAnswerStates = players.map(p => ({
+                id: p.id,
+                answer: p.getState('answer') as number | undefined
+            }));
+            return currentAnswerStates.every(a => a.answer === undefined);
+        };
+        
+        const allReset = checkResetStatus();
+        
+        // 回答チェックロジックを関数として定義
+        const performAnswerCheck = () => {
+            // デバッグログ: 回答状態を確認
             const currentAnswerStates = players.map(p => ({
                 id: p.id,
                 answer: p.getState('answer') as number | undefined
             }));
 
-            // すべてのプレイヤーが実際に回答したことを確認
-            const allAnswered = currentAnswerStates.length > 0 && 
-                               currentAnswerStates.every(a => a.answer !== undefined);
-
-            console.log('[ANSWER CHECK DELAYED]', {
-                playersCount: currentAnswerStates.length,
-                answerStates: currentAnswerStates.map(a => ({ id: a.id, hasAnswer: a.answer !== undefined, answer: a.answer })),
-                allAnswered
+            console.log('[ANSWER CHECK]', {
+                questionText: currentQuestion.text,
+                playersCount: players.length,
+                answerStates: currentAnswerStates.map(a => ({ id: a.id, hasAnswer: a.answer !== undefined })),
+                allAnswered: currentAnswerStates.every(a => a.answer !== undefined)
             });
 
-            if (allAnswered) {
-                // Move to Reveal
-                const answerValues = currentAnswerStates
-                    .filter(a => a.answer !== undefined)
-                    .map(a => ({
-                        id: a.id,
-                        val: a.answer as number
-                    }))
-                    .sort((a, b) => a.val - b.val);
+            // 回答チェックの実行を遅延させ、状態の同期を待つ
+            const checkTimeout = setTimeout(() => {
+                // 再度回答状態を確認（状態の同期を待った後）
+                const delayedAnswerStates = players.map(p => ({
+                    id: p.id,
+                    answer: p.getState('answer') as number | undefined
+                }));
 
-                // Calculate Median
-                const mid = Math.floor(answerValues.length / 2);
-                let median = 0;
-                if (answerValues.length > 0) {
-                    median = answerValues.length % 2 !== 0 ? answerValues[mid].val : (answerValues[mid - 1].val + answerValues[mid].val) / 2;
-                }
+                // すべてのプレイヤーが実際に回答したことを確認
+                const allAnswered = delayedAnswerStates.length > 0 && 
+                                   delayedAnswerStates.every(a => a.answer !== undefined);
 
-                // Scoring Logic
-                const scoreChanges: Record<string, number> = {};
-                const multiplier = isDoubleScore ? 2 : 1;
+                console.log('[ANSWER CHECK DELAYED]', {
+                    questionText: currentQuestion.text,
+                    playersCount: delayedAnswerStates.length,
+                    answerStates: delayedAnswerStates.map(a => ({ id: a.id, hasAnswer: a.answer !== undefined, answer: a.answer })),
+                    allAnswered
+                });
 
-                if (answerValues.length >= 2) {
-                    // 1. Calculate Distances
-                    const withDist = answerValues.map(a => ({ ...a, dist: Math.abs(a.val - median) }));
-                    const minDist = Math.min(...withDist.map(a => a.dist));
+                if (allAnswered) {
+                    // Move to Reveal
+                    const answerValues = delayedAnswerStates
+                        .filter(a => a.answer !== undefined)
+                        .map(a => ({
+                            id: a.id,
+                            val: a.answer as number
+                        }))
+                        .sort((a, b) => a.val - b.val);
 
-                    // 2. Find Winners (Closest to median)
-                    // Bonus for exact match? Plan said +100 for closest.
-                    // Let's stick to: Closest (+100 * multiplier).
-                    withDist.filter(a => a.dist === minDist).forEach(winner => {
-                        scoreChanges[winner.id] = 100 * multiplier;
-                    });
+                    // Calculate Median
+                    const mid = Math.floor(answerValues.length / 2);
+                    let median = 0;
+                    if (answerValues.length > 0) {
+                        median = answerValues.length % 2 !== 0 ? answerValues[mid].val : (answerValues[mid - 1].val + answerValues[mid].val) / 2;
+                    }
 
-                    // 3. Find Losers (Max/Min) - Only if 3+ players
-                    if (players.length >= 3) {
-                        const maxVal = answerValues[answerValues.length - 1].val;
-                        const minVal = answerValues[0].val;
+                    // Scoring Logic
+                    const scoreChanges: Record<string, number> = {};
+                    const multiplier = isDoubleScore ? 2 : 1;
 
-                        // Exemption: If Max == Median or Min == Median (i.e., everyone voted same), or Max == Min
-                        const isFlat = maxVal === minVal;
+                    if (answerValues.length >= 2) {
+                        // 1. Calculate Distances
+                        const withDist = answerValues.map(a => ({ ...a, dist: Math.abs(a.val - median) }));
+                        const minDist = Math.min(...withDist.map(a => a.dist));
 
-                        if (!isFlat) {
-                            // Max Punishment
-                            if (maxVal !== median) {
-                                answerValues.filter(a => a.val === maxVal).forEach(p => {
-                                    // If they are also a winner (closest), skip penalty?
-                                    // Logic: If closest, they get +100. If they are also max (e.g. Median=50, Val=51 is closest & max),
-                                    // typically they still get penalty or not?
-                                    // "Good Line" usually penalizes pure max/min.
-                                    // If you are closest AND max/min, usually you are safe?
-                                    // Let's follow simple rule: Max/Min always penalty UNLESS it is the Median.
-                                    if (Math.abs(p.val - median) !== minDist) {
-                                        scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
-                                    }
-                                });
-                            }
-                            // Min Punishment
-                            if (minVal !== median) {
-                                answerValues.filter(a => a.val === minVal).forEach(p => {
-                                    if (Math.abs(p.val - median) !== minDist) {
-                                        scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
-                                    }
-                                });
+                        // 2. Find Winners (Closest to median)
+                        // Bonus for exact match? Plan said +100 for closest.
+                        // Let's stick to: Closest (+100 * multiplier).
+                        withDist.filter(a => a.dist === minDist).forEach(winner => {
+                            scoreChanges[winner.id] = 100 * multiplier;
+                        });
+
+                        // 3. Find Losers (Max/Min) - Only if 3+ players
+                        if (players.length >= 3) {
+                            const maxVal = answerValues[answerValues.length - 1].val;
+                            const minVal = answerValues[0].val;
+
+                            // Exemption: If Max == Median or Min == Median (i.e., everyone voted same), or Max == Min
+                            const isFlat = maxVal === minVal;
+
+                            if (!isFlat) {
+                                // Max Punishment
+                                if (maxVal !== median) {
+                                    answerValues.filter(a => a.val === maxVal).forEach(p => {
+                                        // If they are also a winner (closest), skip penalty?
+                                        // Logic: If closest, they get +100. If they are also max (e.g. Median=50, Val=51 is closest & max),
+                                        // typically they still get penalty or not?
+                                        // "Good Line" usually penalizes pure max/min.
+                                        // If you are closest AND max/min, usually you are safe?
+                                        // Let's follow simple rule: Max/Min always penalty UNLESS it is the Median.
+                                        if (Math.abs(p.val - median) !== minDist) {
+                                            scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
+                                        }
+                                    });
+                                }
+                                // Min Punishment
+                                if (minVal !== median) {
+                                    answerValues.filter(a => a.val === minVal).forEach(p => {
+                                        if (Math.abs(p.val - median) !== minDist) {
+                                            scoreChanges[p.id] = (scoreChanges[p.id] || 0) - (50 * multiplier);
+                                        }
+                                    });
+                                }
                             }
                         }
                     }
+
+                    // Apply scores
+                    updateScores(scoreChanges);
+
+                    setResult({ median, scoreChanges });
+                    setPhase('REVEAL');
                 }
+            }, 200); // 200ms遅延させて状態の同期を待つ
 
-                // Apply scores
-                updateScores(scoreChanges);
+            return checkTimeout;
+        };
 
-                setResult({ median, scoreChanges });
-                setPhase('REVEAL');
-            }
-        }, 200); // 200ms遅延させて状態の同期を待つ
+        // まだリセットされていない場合は、リセットされるまでポーリングで待つ
+        if (!allReset) {
+            console.log('[ANSWER CHECK] Waiting for answers to reset...', {
+                questionText: currentQuestion.text,
+                answerStates: answerStates.map(a => ({ id: a.id, hasAnswer: a.answer !== undefined }))
+            });
+            
+            // ポーリング間隔（100msごとにチェック）
+            const pollInterval = 100;
+            // 最大待機時間（5秒、必要に応じて調整可能）
+            const maxWaitTime = 5000;
+            let elapsedTime = 0;
+            let answerCheckTimeout: NodeJS.Timeout | null = null;
+            
+            const resetCheckInterval = setInterval(() => {
+                elapsedTime += pollInterval;
+                
+                if (checkResetStatus()) {
+                    // すべてリセットされたら、回答チェックを開始
+                    console.log('[ANSWER CHECK] All answers reset, proceeding with answer check', {
+                        elapsedTime,
+                        questionText: currentQuestion.text
+                    });
+                    clearInterval(resetCheckInterval);
+                    
+                    // 回答チェックロジックを実行
+                    answerCheckTimeout = performAnswerCheck();
+                } else if (elapsedTime >= maxWaitTime) {
+                    // タイムアウトした場合は警告を出して続行
+                    console.warn('[ANSWER CHECK] Timeout waiting for answers to reset, proceeding anyway', {
+                        elapsedTime,
+                        questionText: currentQuestion.text,
+                        answerStates: players.map(p => ({
+                            id: p.id,
+                            answer: p.getState('answer') as number | undefined
+                        }))
+                    });
+                    clearInterval(resetCheckInterval);
+                    
+                    // タイムアウト後も回答チェックを実行
+                    answerCheckTimeout = performAnswerCheck();
+                }
+            }, pollInterval);
+            
+            return () => {
+                clearInterval(resetCheckInterval);
+                if (answerCheckTimeout) {
+                    clearTimeout(answerCheckTimeout);
+                }
+            };
+        }
 
+        // リセットが完了している場合は、すぐに回答チェックを開始
+        const checkTimeout = performAnswerCheck();
         return () => clearTimeout(checkTimeout);
-    }, [players, phase, isDoubleScore, updateScores, setResult, setPhase]);
+    }, [players, phase, currentQuestion, isDoubleScore, updateScores, setResult, setPhase]);
 
     // ----------------------
     // Actions (Exposed to UI)
