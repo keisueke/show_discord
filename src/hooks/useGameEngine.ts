@@ -264,7 +264,7 @@ export const useGameEngine = () => {
             // 最大待機時間（5秒、必要に応じて調整可能）
             const maxWaitTime = 5000;
             let elapsedTime = 0;
-            let answerCheckTimeout: NodeJS.Timeout | null = null;
+            let answerCheckTimeout: ReturnType<typeof setTimeout> | null = null;
             
             const resetCheckInterval = setInterval(() => {
                 elapsedTime += pollInterval;
