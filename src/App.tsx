@@ -18,7 +18,7 @@ interface LobbyProps {
   settings: GameSettings;
   onUpdateSettings: (settings: GameSettings) => void;
   onTransferAdmin: (newAdminId: string) => void;
-  onRefresh?: () => void;
+  onResetSession?: () => void;
   activeTab: 'participants' | 'settings' | 'howto';
   onTabChange: (tab: 'participants' | 'settings' | 'howto') => void;
 }
@@ -75,7 +75,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, activeTab, onTabChange }: LobbyProps) => {
+const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, onResetSession, activeTab, onTabChange }: LobbyProps) => {
   const [logoLoaded, setLogoLoaded] = useState(false);
   
   // デバッグログ出力ヘルパー関数（Appコンポーネントと同じ実装）
@@ -333,7 +333,14 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
       {activeTab !== 'howto' && (
         <div className="game-start-container">
           {isAdmin ? (
-            <button onClick={onStart} className="btn-start">ゲーム開始</button>
+            <div className="admin-buttons">
+              <button onClick={onStart} className="btn-start">ゲーム開始</button>
+              {onResetSession && (
+                <button onClick={onResetSession} className="btn-reset" title="ゲーム状態をリセットしてロビーに戻ります">
+                  🔄 リセット
+                </button>
+              )}
+            </div>
           ) : (
             <div className="waiting-message">ホストがゲームを開始するのを待っています...</div>
           )}
@@ -1027,7 +1034,7 @@ function App() {
     );
   }
   
-  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound, backToLobby, scores;
+  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound, backToLobby, resetSession, scores;
   
   try {
     ({
@@ -1049,7 +1056,8 @@ function App() {
       selectQuestion,
       submitAnswer,
       nextRound,
-      backToLobby
+      backToLobby,
+      resetSession
     } = engine);
     
     addDebugLog(`[APP] Engine state extracted - phase: ${phase}, players: ${players.length}, myself: ${!!myself}`);
@@ -1229,7 +1237,7 @@ function App() {
           onStart={startGame}
           onUpdateSettings={updateSettings}
           onTransferAdmin={transferAdmin}
-          onRefresh={handleRefreshLobby}
+          onResetSession={resetSession}
           activeTab={lobbyActiveTab}
           onTabChange={setLobbyActiveTab}
         />

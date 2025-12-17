@@ -388,6 +388,32 @@ export const useGameEngine = () => {
         setQuestionCandidates([]);
     };
 
+    // セッションリセット: ゲーム状態を完全に初期化してロビーに戻す
+    const resetSession = () => {
+        if (!isHost()) return;
+        
+        console.log('[GAME ENGINE] Resetting session...');
+        
+        // ゲーム状態をすべてリセット
+        setPhase('LOBBY');
+        setCurrentRound(0);
+        setQuestionerId(null);
+        setResult(null);
+        setCurrentQuestion(null);
+        setQuestionCandidates([]);
+        setIsDoubleScore(false);
+        
+        // スコアを初期化
+        const initialScores: Record<string, number> = {};
+        playerOrder.forEach(id => initialScores[id] = 0);
+        setScores(initialScores);
+        
+        // すべてのプレイヤーの回答をリセット
+        RPC.call('resetAnswers', {}, RPC.Mode.ALL);
+        
+        console.log('[GAME ENGINE] Session reset complete');
+    };
+
     // Helper
     const getRandomCandidates = (): Question[] => {
         const shuffled = [...QUESTIONS].sort(() => 0.5 - Math.random());
@@ -418,6 +444,7 @@ export const useGameEngine = () => {
         submitAnswer,
         nextRound,
         backToLobby,
+        resetSession,
 
         // Utils
         isHost: isHost()

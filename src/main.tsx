@@ -109,9 +109,10 @@ async function initDiscordSDK(isDiscordActivity: boolean): Promise<DiscordSDK | 
     const discordSdk = new DiscordSDK(clientId);
 
     // ready()を呼び出す（タイムアウト付き）
+    // Discord Activity環境では初期化に時間がかかる場合があるため、タイムアウトを10秒に延長
     const readyPromise = discordSdk.ready();
     const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Timeout')), 3000)
+      setTimeout(() => reject(new Error('Timeout')), 10000)
     );
 
     await Promise.race([readyPromise, timeoutPromise]);
@@ -163,113 +164,130 @@ async function setDiscordProfile() {
     const currentProfile = player.getProfile();
     debugLog('Current profile', currentProfile);
 
-    // Discord Activity内では、認証済みのユーザー情報を取得
-    // まず認証を試みる（既に認証済みの場合はスキップされる）
-    let accessToken: string | null = null;
-    let authCode: string | null = null;
-    
-    try {
-      const authResult = await discordSdkInstance.commands.authorize({
-        client_id: import.meta.env.VITE_DISCORD_CLIENT_ID || '',
-        response_type: 'code',
-        state: '',
-        prompt: 'none',
-        scope: ['identify'],
-      });
-      debugLog('Discord authorization successful', { code: authResult?.code ? 'received' : 'none' });
-      
-      // 認証コードを取得
-      if (authResult && 'code' in authResult) {
-        authCode = (authResult as any).code;
-        debugLog('Authorization code received');
-      }
-      
-      // アクセストークンが直接返される場合（稀なケース）
-      if (authResult && 'access_token' in authResult) {
-        accessToken = (authResult as any).access_token;
-        debugLog('Access token received from authorize');
-      }
-    } catch (authError) {
-      // 認証エラーは無視（既に認証済みの場合など）
-      debugLog('Auth skipped', authError instanceof Error ? authError.message : 'Unknown');
-    }
-
     // Discord SDKからユーザー情報を取得
     let discordUser: any = null;
+    let accessToken: string | null = null;
     
-    // 方法1: 認証コードをバックエンドでトークンと交換
-    if (!accessToken && authCode) {
-      try {
-        debugLog('Attempting to exchange code for token', { codeLength: authCode.length });
-        const tokenResponse = await fetch('/api/discord-token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ code: authCode }),
+    // 方法1（最優先）: authenticate()メソッドを使用してユーザー情報を直接取得
+    // Discord Activity内では authenticate() が user を返すため、これを最優先で使用
+    try {
+      debugLog('Attempting authenticate() to get user directly...');
+      const authenticateResult = await discordSdkInstance.commands.authenticate({
+        access_token: undefined, // Discord Activity内では自動的に取得される
+      });
+      
+      debugLog('authenticate() result', {
+        hasAccessToken: !!(authenticateResult as any)?.access_token,
+        hasUser: !!(authenticateResult as any)?.user,
+        userName: (authenticateResult as any)?.user?.username
+      });
+      
+      // authenticate() の戻り値から user を直接取得（最も確実）
+      if (authenticateResult && 'user' in authenticateResult && (authenticateResult as any).user) {
+        discordUser = (authenticateResult as any).user;
+        debugLog('Discord user from authenticate().user', { 
+          id: discordUser?.id, 
+          username: discordUser?.username,
+          global_name: discordUser?.global_name
         });
+      }
+      
+      // アクセストークンも取得（フォールバック用）
+      if (authenticateResult && 'access_token' in authenticateResult) {
+        accessToken = (authenticateResult as any).access_token;
+        debugLog('Access token received from authenticate');
+      }
+    } catch (e) {
+      debugLog('authenticate() failed', e instanceof Error ? e.message : 'Unknown');
+    }
+    
+    // 方法2（フォールバック）: authorize → バックエンドでトークン交換 → Discord API
+    if (!discordUser) {
+      debugLog('Falling back to authorize flow...');
+      let authCode: string | null = null;
+      
+      try {
+        const authResult = await discordSdkInstance.commands.authorize({
+          client_id: import.meta.env.VITE_DISCORD_CLIENT_ID || '',
+          response_type: 'code',
+          state: '',
+          prompt: 'none',
+          scope: ['identify'],
+        });
+        debugLog('Discord authorization successful', { code: authResult?.code ? 'received' : 'none' });
         
-        if (tokenResponse.ok) {
-          const tokenData = await tokenResponse.json();
-          accessToken = tokenData.access_token;
-          debugLog('Access token received from backend exchange');
-        } else {
-          const errorText = await tokenResponse.text();
+        if (authResult && 'code' in authResult) {
+          authCode = (authResult as any).code;
+          debugLog('Authorization code received');
+        }
+        
+        if (authResult && 'access_token' in authResult) {
+          accessToken = (authResult as any).access_token;
+          debugLog('Access token received from authorize');
+        }
+      } catch (authError) {
+        debugLog('Auth skipped', authError instanceof Error ? authError.message : 'Unknown');
+      }
+      
+      // 認証コードをバックエンドでトークンと交換
+      if (!accessToken && authCode) {
+        try {
+          debugLog('Attempting to exchange code for token', { codeLength: authCode.length });
+          const tokenResponse = await fetch('/api/discord-token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ code: authCode }),
+          });
+          
+          if (tokenResponse.ok) {
+            const tokenData = await tokenResponse.json();
+            accessToken = tokenData.access_token;
+            debugLog('Access token received from backend exchange');
+          } else {
+            const errorText = await tokenResponse.text();
+            debugLog('Failed to exchange code for token', { 
+              status: tokenResponse.status, 
+              statusText: tokenResponse.statusText,
+              error: errorText 
+            });
+          }
+        } catch (e) {
           debugLog('Failed to exchange code for token', { 
-            status: tokenResponse.status, 
-            statusText: tokenResponse.statusText,
-            error: errorText 
+            error: e instanceof Error ? e.message : 'Unknown',
+            stack: e instanceof Error ? e.stack : undefined
           });
         }
-      } catch (e) {
-        debugLog('Failed to exchange code for token', { 
-          error: e instanceof Error ? e.message : 'Unknown',
-          stack: e instanceof Error ? e.stack : undefined
-        });
       }
-    }
-    
-    // 方法2: authenticate()メソッドを使用してアクセストークンを取得（フォールバック）
-    if (!accessToken) {
-      try {
-        const authenticateResult = await discordSdkInstance.commands.authenticate({
-          access_token: undefined, // Discord Activity内では自動的に取得される
-        });
-        if (authenticateResult && 'access_token' in authenticateResult) {
-          accessToken = (authenticateResult as any).access_token;
-          debugLog('Access token received from authenticate');
+      
+      // アクセストークンを使用してDiscord APIからユーザー情報を取得
+      if (accessToken && !discordUser) {
+        try {
+          const response = await fetch('https://discord.com/api/v10/users/@me', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            discordUser = await response.json();
+            debugLog('Discord user from API', { 
+              id: discordUser?.id, 
+              username: discordUser?.username,
+              global_name: discordUser?.global_name
+            });
+          } else {
+            debugLog('Failed to fetch user from Discord API', { status: response.status, statusText: response.statusText });
+          }
+        } catch (e) {
+          debugLog('Failed to fetch user from Discord API', e instanceof Error ? e.message : 'Unknown');
         }
-      } catch (e) {
-        debugLog('Failed to authenticate', e instanceof Error ? e.message : 'Unknown');
       }
     }
 
-    // 方法2: アクセストークンを使用してDiscord APIからユーザー情報を取得
-    if (accessToken) {
-      try {
-        const response = await fetch('https://discord.com/api/v10/users/@me', {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (response.ok) {
-          discordUser = await response.json();
-          debugLog('Discord user from API', { 
-            id: discordUser?.id, 
-            username: discordUser?.username,
-            global_name: discordUser?.global_name
-          });
-        } else {
-          debugLog('Failed to fetch user from Discord API', { status: response.status, statusText: response.statusText });
-        }
-      } catch (e) {
-        debugLog('Failed to fetch user from Discord API', e instanceof Error ? e.message : 'Unknown');
-      }
-    }
-
-    // 方法3: SDKのplatformからユーザー情報を取得（フォールバック）
+    // 方法3（最終フォールバック）: SDKのplatformからユーザー情報を取得
     if (!discordUser) {
       try {
         if ((discordSdkInstance as any).platform && (discordSdkInstance as any).platform.user) {
@@ -285,7 +303,14 @@ async function setDiscordProfile() {
     }
 
     if (!discordUser) {
-      debugLog('Discord user information not available via SDK, consider using discord: true option');
+      debugLog('Discord user information not available via any method');
+    } else {
+      debugLog('Discord user obtained successfully', {
+        id: discordUser.id,
+        username: discordUser.username,
+        global_name: discordUser.global_name,
+        avatar: discordUser.avatar ? 'present' : 'none'
+      });
     }
 
     // Discord情報をPlayroomKitのプロファイルに設定
@@ -582,20 +607,18 @@ async function initApp() {
   let roomId: string | undefined = undefined;
   
   if (isDiscordActivity && instanceId) {
-    // Discord Activityの場合、instanceIdとタイムスタンプを使用してルームIDを生成
-    // これにより、アクティビティを開くたびに新しいセッションが作成される
-    // 同じアクティビティインスタンス内のユーザーは、同じinstanceIdとタイムスタンプを持つため、同じルームに入る
-    const sessionTimestamp = Date.now();
-    roomId = `discord-${instanceId}-${sessionTimestamp}`;
-    debugLog('Using Discord instanceId with timestamp as roomId', { instanceId, sessionTimestamp, roomId });
+    // Discord Activityの場合、instanceIdを使用してルームIDを生成
+    // 同じinstanceIdを持つユーザーは同じルームに入る（セッション共有）
+    // セッションのリセットはホストがゲーム状態を初期化することで対応
+    roomId = `discord-${instanceId}`;
+    debugLog('Using Discord instanceId as roomId', { instanceId, roomId });
   } else if (isDiscordActivity && discordSdk) {
     // Discord SDKからinstanceIdを取得を試みる
     try {
       const platform = (discordSdk as any).platform;
       if (platform && platform.instanceId) {
-        const sessionTimestamp = Date.now();
-        roomId = `discord-${platform.instanceId}-${sessionTimestamp}`;
-        debugLog('Using Discord SDK platform.instanceId with timestamp as roomId', { instanceId: platform.instanceId, sessionTimestamp, roomId });
+        roomId = `discord-${platform.instanceId}`;
+        debugLog('Using Discord SDK platform.instanceId as roomId', { instanceId: platform.instanceId, roomId });
       }
     } catch (e) {
       debugLog('Failed to get instanceId from Discord SDK', e);
