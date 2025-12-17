@@ -75,7 +75,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
-const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, onRefresh, activeTab, onTabChange }: LobbyProps) => {
+const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, onTransferAdmin, activeTab, onTabChange }: LobbyProps) => {
   const [logoLoaded, setLogoLoaded] = useState(false);
   
   // デバッグログ出力ヘルパー関数（Appコンポーネントと同じ実装）
