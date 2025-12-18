@@ -411,6 +411,90 @@ const SelectionScreen = ({ isQuestioner, questionerName, candidates, onSelect }:
   );
 };
 
+interface PlayerSelectionScreenProps {
+  isQuestioner: boolean;
+  questionerName: string;
+  pendingQuestion: Question | null;
+  players: PlayroomPlayer[];
+  myself: PlayroomPlayer;
+  onSelectPlayer: (playerName: string) => void;
+}
+
+const PlayerSelectionScreen = ({ isQuestioner, questionerName, pendingQuestion, players, myself, onSelectPlayer }: PlayerSelectionScreenProps) => {
+  if (!isQuestioner) {
+    return (
+      <div className="screen wait">
+        <h2>{questionerName} さんがプレイヤーを選んでいます...</h2>
+        {pendingQuestion && (
+          <div className="pending-question-preview">
+            <div className="pending-question-category">[{pendingQuestion.category}]</div>
+            <div className="pending-question-text">{pendingQuestion.text}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen player-selection">
+      <h2>誰について質問しますか？</h2>
+      {pendingQuestion && (
+        <div className="pending-question-preview">
+          <div className="pending-question-category">[{pendingQuestion.category}]</div>
+          <div className="pending-question-text">{pendingQuestion.text}</div>
+        </div>
+      )}
+      <div className="player-selection-list">
+        {players.map((p) => {
+          // PlayroomKitのプロファイルを取得
+          const profile = p.getProfile();
+          
+          // player.setState('discordProfile', ...)で保存されたDiscordプロファイルを取得
+          const syncedDiscordProfile = p.getState('discordProfile');
+          
+          // 自分自身の場合のみ、window.discordProfileをフォールバックとして使用
+          const isMyself = p.id === myself.id;
+          const windowDiscordProfile = isMyself && (window as any).discordProfile ? (window as any).discordProfile : null;
+          
+          // プロファイル情報を決定（同期されたDiscordプロファイルを最優先）
+          const displayName = syncedDiscordProfile?.name || windowDiscordProfile?.name || profile.name || 'Player';
+          const displayColor = syncedDiscordProfile?.color || windowDiscordProfile?.color || profile.color;
+          const colorHex = displayColor?.hexString || displayColor?.hex || (displayColor as any)?.hex || '#ccc';
+          
+          // アバター画像を取得（同期されたDiscordプロファイルを最優先）
+          const avatarUrl = syncedDiscordProfile?.photo || windowDiscordProfile?.photo || profile.photo || null;
+          
+          return (
+            <button
+              key={p.id}
+              className="player-selection-card"
+              onClick={() => onSelectPlayer(displayName)}
+              style={{ borderColor: colorHex }}
+            >
+              {avatarUrl ? (
+                <img 
+                  src={avatarUrl} 
+                  alt={displayName}
+                  className="player-selection-avatar"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="player-selection-avatar-placeholder" style={{ backgroundColor: colorHex }}>
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="player-selection-name">{displayName}</span>
+              {isMyself && <span className="player-selection-you">(You)</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 interface QuestionScreenProps {
   question: Question | null;
   questionerName: string;
@@ -1133,7 +1217,7 @@ function App() {
     );
   }
   
-  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, submitAnswer, nextRound, backToLobby, resetSession, scores;
+  let phase, settings, adminId, players, myself, questionerId, questionCandidates, currentQuestion, result, currentRound, isDoubleScore, startGame, updateSettings, transferAdmin, selectQuestion, selectPlayerForQuestion, submitAnswer, nextRound, backToLobby, resetSession, scores, pendingQuestion;
   
   try {
     ({
@@ -1149,10 +1233,12 @@ function App() {
       currentRound,
       isDoubleScore,
       scores,
+      pendingQuestion,
       startGame,
       updateSettings,
       transferAdmin,
       selectQuestion,
+      selectPlayerForQuestion,
       submitAnswer,
       nextRound,
       backToLobby,
@@ -1492,6 +1578,16 @@ function App() {
           questionerName={questionerName}
           candidates={questionCandidates}
           onSelect={selectQuestion}
+        />
+      )}
+      {phase === 'PLAYER_SELECTION' && (
+        <PlayerSelectionScreen
+          isQuestioner={isQuestioner}
+          questionerName={questionerName}
+          pendingQuestion={pendingQuestion}
+          players={players}
+          myself={myself}
+          onSelectPlayer={selectPlayerForQuestion}
         />
       )}
       {phase === 'QUESTION' && (

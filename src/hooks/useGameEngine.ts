@@ -28,6 +28,9 @@ export const useGameEngine = () => {
     
     // 同期待ち状態: ホストが強制開始できるかどうか
     const [waitingForSync, setWaitingForSync] = useMultiplayerState<boolean>('waitingForSync', false);
+    
+    // 個人問題のプレイヤー選択用: 一時保存された問題
+    const [pendingQuestion, setPendingQuestion] = useMultiplayerState<Question | null>('pendingQuestion', null);
 
     // ----------------------
     // Player List & Local
@@ -374,6 +377,14 @@ export const useGameEngine = () => {
     };
 
     const selectQuestion = (q: Question) => {
+        // 「個人」カテゴリーの問題の場合は、プレイヤー選択画面に遷移
+        if (q.category === '個人') {
+            setPendingQuestion(q);
+            setPhase('PLAYER_SELECTION');
+            setQuestionCandidates([]); // Clear candidates
+            return;
+        }
+        
         // 問題世代IDをインクリメントし、回答をリセット
         const newSeq = questionSeq + 1;
         setQuestionSeq(newSeq);
@@ -388,6 +399,27 @@ export const useGameEngine = () => {
     const submitAnswer = (val: number) => {
         myself.setState('answer', val);
         myself.setState('answerSeq', questionSeq); // この回答がどの問題世代のものか記録
+    };
+
+    // プレイヤー選択後に問題文の「○○」を置き換えてQUESTIONフェーズに遷移
+    const selectPlayerForQuestion = (playerName: string) => {
+        if (!pendingQuestion) return;
+        
+        // 問題文の「○○」を選択されたプレイヤー名に置き換え
+        const modifiedQuestion: Question = {
+            ...pendingQuestion,
+            text: pendingQuestion.text.replace(/○○/g, playerName)
+        };
+        
+        // 問題世代IDをインクリメントし、回答をリセット
+        const newSeq = questionSeq + 1;
+        setQuestionSeq(newSeq);
+        setWaitingForSync(true); // 同期待ち状態を開始
+        
+        setPhase('QUESTION');
+        setCurrentQuestion(modifiedQuestion);
+        setPendingQuestion(null); // 一時保存をクリア
+        RPC.call('resetAnswers', { questionSeq: newSeq }, RPC.Mode.ALL);
     };
 
     const nextRound = () => {
@@ -485,12 +517,14 @@ export const useGameEngine = () => {
         isDoubleScore,
         players,
         myself,
+        pendingQuestion,
 
         // Actions
         startGame,
         updateSettings,
         transferAdmin,
         selectQuestion,
+        selectPlayerForQuestion,
         submitAnswer,
         nextRound,
         backToLobby,

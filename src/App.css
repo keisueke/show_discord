@@ -1416,3 +1416,154 @@ button:disabled {
   font-family: var(--font-heading);
   margin-bottom: 1rem;
 }
+
+/* ========================================
+   プレイヤー選択画面
+   ======================================== */
+.screen.player-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+}
+
+.screen.player-selection h2 {
+  font-family: var(--font-heading);
+  font-size: 2em;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1.5rem;
+}
+
+/* 一時保存された問題のプレビュー */
+.pending-question-preview {
+  background: var(--card-bg);
+  padding: 1.5rem 2rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 2rem;
+  border: 1px solid var(--card-border);
+  max-width: 600px;
+  width: 100%;
+  box-shadow: var(--shadow-soft);
+}
+
+.pending-question-category {
+  color: var(--accent-cyan);
+  font-weight: 600;
+  font-family: var(--font-heading);
+  font-size: 0.9em;
+  margin-bottom: 0.5rem;
+}
+
+.pending-question-text {
+  color: var(--text-white);
+  font-family: var(--font-heading);
+  font-size: 1.2em;
+  line-height: 1.5;
+}
+
+/* プレイヤー選択リスト */
+.player-selection-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  max-width: 800px;
+  padding: 0 1rem;
+}
+
+/* プレイヤー選択カード */
+.player-selection-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: var(--card-bg);
+  border: 3px solid transparent;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-soft);
+}
+
+.player-selection-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: var(--shadow-glow-pink);
+}
+
+.player-selection-card:active {
+  transform: translateY(-2px) scale(1.01);
+}
+
+/* プレイヤーアバター */
+.player-selection-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--accent-cyan);
+  box-shadow: 0 4px 15px rgba(78, 205, 196, 0.3);
+}
+
+.player-selection-avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 2em;
+  font-weight: 700;
+  color: var(--text-white);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+/* プレイヤー名 */
+.player-selection-name {
+  font-family: var(--font-heading);
+  font-size: 1.2em;
+  font-weight: 600;
+  color: var(--text-white);
+  text-align: center;
+  word-break: break-word;
+}
+
+.player-selection-you {
+  font-size: 0.8em;
+  color: var(--accent-yellow);
+  font-weight: 400;
+  margin-left: 0.25rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 600px) {
+  .player-selection-list {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+  
+  .player-selection-card {
+    padding: 1rem;
+  }
+  
+  .player-selection-avatar,
+  .player-selection-avatar-placeholder {
+    width: 60px;
+    height: 60px;
+    font-size: 1.5em;
+  }
+  
+  .player-selection-name {
+    font-size: 1em;
+  }
+  
+  .pending-question-text {
+    font-size: 1em;
+  }
+}

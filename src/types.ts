@@ -1,5 +1,5 @@
 
-export type Phase = 'LOBBY' | 'QUESTION_SELECTION' | 'QUESTION' | 'ANSWERING' | 'REVEAL' | 'SCORING' | 'RANKING';
+export type Phase = 'LOBBY' | 'QUESTION_SELECTION' | 'PLAYER_SELECTION' | 'QUESTION' | 'ANSWERING' | 'REVEAL' | 'SCORING' | 'RANKING';
 
 export interface Player {
   id: string;
