@@ -17,7 +17,6 @@ export type SoundName =
 // ロビー用BGMのパス配列（ランダム再生用）
 const LOBBY_BGM_PATHS = [
     './sounds/bgm_lobby_1.mp3',
-    './sounds/bgm_lobby_2.mp3',
 ];
 
 const SOUND_PATHS: Record<SoundName, string> = {
