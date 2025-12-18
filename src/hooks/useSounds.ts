@@ -60,16 +60,23 @@ export const useSounds = () => {
     const bgmRef = useRef<Howl | null>(null);
     const currentBgmName = useRef<SoundName | null>(null);
     const lastLobbyBgmIndex = useRef<number>(-1); // 前回再生したロビーBGMのインデックス
+    const bgmVolumeRef = useRef<number>(bgmVolume); // 最新の音量を保持するref
 
     // Initialize global mute state
     useEffect(() => {
         Howler.mute(muted);
     }, [muted]);
 
+    // bgmVolumeが変更されたときにrefも更新
+    useEffect(() => {
+        bgmVolumeRef.current = bgmVolume;
+    }, [bgmVolume]);
+
     // BGM音量を変更する関数
     const setBgmVolume = useCallback((volume: number) => {
         const clampedVolume = Math.max(0, Math.min(1, volume));
         setBgmVolumeState(clampedVolume);
+        bgmVolumeRef.current = clampedVolume; // refも更新
         
         // localStorageに保存
         try {
@@ -78,18 +85,11 @@ export const useSounds = () => {
             console.warn('Failed to save BGM volume to localStorage', e);
         }
         
-        // 現在再生中のBGMの音量も更新
-        if (bgmRef.current) {
+        // 現在再生中のBGMの音量も即座に更新
+        if (bgmRef.current && bgmRef.current.playing()) {
             bgmRef.current.volume(clampedVolume);
         }
     }, []);
-
-    // BGM音量が変更されたときに、再生中のBGMの音量も更新
-    useEffect(() => {
-        if (bgmRef.current) {
-            bgmRef.current.volume(bgmVolume);
-        }
-    }, [bgmVolume]);
 
     const playSE = useCallback((name: SoundName) => {
         const sound = new Howl({
@@ -115,6 +115,7 @@ export const useSounds = () => {
             }
             lastLobbyBgmIndex.current = randomIndex;
             bgmPath = LOBBY_BGM_PATHS[randomIndex];
+            console.log('[BGM] Selected lobby BGM:', bgmPath, 'index:', randomIndex);
         } else {
             bgmPath = SOUND_PATHS[name];
         }
@@ -126,6 +127,7 @@ export const useSounds = () => {
                 const currentSrc = (bgmRef.current as any)._src;
                 if (currentSrc && currentSrc[0] === bgmPath) {
                     // 同じ曲が再生中の場合は何もしない
+                    console.log('[BGM] Same lobby BGM already playing, skipping');
                     return;
                 }
             } else {
@@ -151,22 +153,24 @@ export const useSounds = () => {
         });
 
         newBgm.play();
-        newBgm.fade(0, bgmVolume, 1000); // Fade in to current BGM volume
+        // 最新のbgmVolumeRefを参照してフェードイン
+        newBgm.fade(0, bgmVolumeRef.current, 1000);
 
         bgmRef.current = newBgm;
         currentBgmName.current = name;
-    }, [bgmVolume]);
+    }, []); // bgmVolumeRefを使用するため依存配列は空
 
     const stopBGM = useCallback(() => {
         if (bgmRef.current) {
-            bgmRef.current.fade(bgmVolume, 0, 1000);
+            // 最新のbgmVolumeRefを参照
+            bgmRef.current.fade(bgmVolumeRef.current, 0, 1000);
             setTimeout(() => {
                 bgmRef.current?.stop();
                 bgmRef.current = null;
                 currentBgmName.current = null;
             }, 1000);
         }
-    }, [bgmVolume]);
+    }, []); // bgmVolumeStateを依存配列から削除（関数内で直接参照）
 
     const toggleMute = useCallback(() => {
         setMuted(prev => !prev);
