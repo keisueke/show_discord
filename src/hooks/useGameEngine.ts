@@ -83,39 +83,29 @@ export const useGameEngine = () => {
             }
         });
 
-        // Set Admin if needed
-        if (players.length > 0 && !adminId) {
-            setAdminId(players[0].id);
-        }
-
         if (changed) {
             setPlayerOrder(newOrder);
         }
 
     }, [players, isHost()]); // Re-run when players list changes
 
-    // Handle host disconnection and transfer admin to remaining players
+    // Handle admin initialization and transfer (誰でも実行可能)
     useEffect(() => {
-        // ホストが切断された場合、新しいホストが自動的に選ばれる
-        // 新しいホストがadminIdを更新する必要がある
-        if (!isHost()) return;
+        if (players.length === 0) return;
 
         const currentIds = players.map(p => p.id);
         
-        // adminIdが現在のプレイヤーリストに存在しない場合、新しいホストを選ぶ
-        if (adminId && !currentIds.includes(adminId)) {
-            console.log('[HOST TRANSFER] Previous admin disconnected, transferring to new host');
-            if (players.length > 0) {
-                // 残っているプレイヤーの最初の人を新しいadminにする
-                const newAdminId = players[0].id;
-                setAdminId(newAdminId);
-                console.log('[HOST TRANSFER] New admin set:', newAdminId);
-            } else {
-                // プレイヤーがいない場合はnullに設定
-                setAdminId(null);
-            }
+        // adminIdがnullまたは無効な場合、最初のプレイヤーをadminにする
+        if (!adminId || !currentIds.includes(adminId)) {
+            console.log('[ADMIN INIT] Setting admin to first player', { 
+                currentAdminId: adminId, 
+                firstPlayerId: players[0].id,
+                currentPlayerIds: currentIds 
+            });
+            const newAdminId = players[0].id;
+            setAdminId(newAdminId);
         }
-    }, [players, adminId, isHost()]);
+    }, [players, adminId]);
 
     // Update Scores Helper
     const updateScores = (changes: Record<string, number>) => {
@@ -347,7 +337,14 @@ export const useGameEngine = () => {
     // ----------------------
 
     const startGame = () => {
-        if (!isHost()) return;
+        // adminIdベースのチェックに変更（権限移動後も動作するように）
+        if (!myself || myself.id !== adminId) {
+            console.log('[START GAME] Permission denied', { 
+                myselfId: myself?.id, 
+                adminId 
+            });
+            return;
+        }
 
         const firstQuestioner = playerOrder[0];
         setPhase('QUESTION_SELECTION');
@@ -369,10 +366,14 @@ export const useGameEngine = () => {
     };
 
     const updateSettings = (newSettings: GameSettings) => {
+        // adminIdベースのチェックに変更（権限移動後も動作するように）
+        if (!myself || myself.id !== adminId) return;
         setSettings(newSettings);
     };
 
     const transferAdmin = (newAdminId: string) => {
+        // adminIdベースのチェックに変更（権限移動後も動作するように）
+        if (!myself || myself.id !== adminId) return;
         setAdminId(newAdminId);
     };
 
@@ -423,6 +424,9 @@ export const useGameEngine = () => {
     };
 
     const nextRound = () => {
+        // adminIdベースのチェックに変更（権限移動後も動作するように）
+        if (!myself || myself.id !== adminId) return;
+        
         // Calculate next turn
         const currentIndex = playerOrder.indexOf(questionerId || '');
         const nextIndex = (currentIndex + 1) % playerOrder.length;
@@ -456,7 +460,8 @@ export const useGameEngine = () => {
     };
 
     const backToLobby = () => {
-        if (!isHost()) return;
+        // adminIdベースのチェックに変更（権限移動後も動作するように）
+        if (!myself || myself.id !== adminId) return;
         setPhase('LOBBY');
         setCurrentRound(0);
         setQuestionerId(null);
@@ -467,7 +472,8 @@ export const useGameEngine = () => {
 
     // セッションリセット: ゲーム状態を完全に初期化してロビーに戻す
     const resetSession = () => {
-        if (!isHost()) return;
+        // adminIdベースのチェックに変更（権限移動後も動作するように）
+        if (!myself || myself.id !== adminId) return;
         
         console.log('[GAME ENGINE] Resetting session...');
         
