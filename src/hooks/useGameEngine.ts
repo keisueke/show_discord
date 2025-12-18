@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { onPlayerJoin, useMultiplayerState, usePlayersList, myPlayer, isHost, RPC } from 'playroomkit';
 import type { Phase, Question, GameSettings } from '../types';
 import { QUESTIONS } from '../game/questions';
+
+// 回答チェック開始までの待機時間（ミリ秒）
+// resetAnswersのRPCが全プレイヤーに到達する時間を確保
+const ANSWER_CHECK_DELAY_MS = 2000;
 
 export const useGameEngine = () => {
     // ----------------------
@@ -31,6 +35,9 @@ export const useGameEngine = () => {
     
     // 個人問題のプレイヤー選択用: 一時保存された問題
     const [pendingQuestion, setPendingQuestion] = useMultiplayerState<Question | null>('pendingQuestion', null);
+    
+    // 問題開始時刻を記録（回答チェック開始までの待機時間を計算するため）
+    const questionStartTimeRef = useRef<number>(0);
 
     // ----------------------
     // Player List & Local
@@ -116,10 +123,32 @@ export const useGameEngine = () => {
         setScores(newScores);
     };
 
+    // 問題が変わったときに開始時刻を記録
+    useEffect(() => {
+        if (phase === 'QUESTION' && currentQuestion) {
+            questionStartTimeRef.current = Date.now();
+            console.log('[ANSWER CHECK] Question started, recording start time:', questionStartTimeRef.current);
+        }
+    }, [phase, currentQuestion, questionSeq]);
+
     // Check Answers Logic (Host Only)
     // 問題世代ID (questionSeq) を使って、前回の回答を構造的に無効化
+    // 待機時間を追加して、resetAnswersのRPCが全プレイヤーに到達する時間を確保
     useEffect(() => {
         if (!isHost() || phase !== 'QUESTION' || !currentQuestion) return;
+
+        // 問題開始からの経過時間を確認
+        const elapsedTime = Date.now() - questionStartTimeRef.current;
+        const isWaitingPeriod = elapsedTime < ANSWER_CHECK_DELAY_MS;
+        
+        if (isWaitingPeriod) {
+            console.log('[ANSWER CHECK] Waiting for sync period...', {
+                elapsedTime,
+                waitingFor: ANSWER_CHECK_DELAY_MS - elapsedTime
+            });
+            // 待機時間が終わるまで何もしない（次のuseEffect実行で再チェック）
+            return;
+        }
 
         // 各プレイヤーの回答状態を取得（answerSeqも含む）
         const getAnswerStates = () => players.map(p => ({
@@ -129,30 +158,46 @@ export const useGameEngine = () => {
         }));
 
         // 同期済みかどうかを確認（answerSeq === questionSeq）
+        // answerSeqがundefinedの場合は同期されていないとみなす
         const checkSyncStatus = () => {
             const states = getAnswerStates();
-            return states.every(a => a.answerSeq === questionSeq);
+            return states.every(a => 
+                a.answerSeq !== undefined && a.answerSeq === questionSeq
+            );
         };
 
         // 全員が現在の問題世代で回答済みかどうかを確認
+        // 条件を厳密化: answerSeqがundefinedの場合は回答済みとみなさない
         const checkAllAnswered = () => {
             const states = getAnswerStates();
-            return states.length > 0 && states.every(a => 
-                a.answerSeq === questionSeq && a.answer !== undefined
-            );
+            if (states.length === 0) return false;
+            
+            return states.every(a => {
+                // answerSeqがundefinedの場合は回答済みとみなさない
+                if (a.answerSeq === undefined) return false;
+                // answerSeqがquestionSeqと一致しない場合は回答済みとみなさない
+                if (a.answerSeq !== questionSeq) return false;
+                // answerがundefinedまたはnullの場合は回答済みとみなさない
+                if (a.answer === undefined || a.answer === null) return false;
+                // answerが数値でない場合は回答済みとみなさない
+                if (typeof a.answer !== 'number') return false;
+                return true;
+            });
         };
 
         const answerStates = getAnswerStates();
         const allSynced = checkSyncStatus();
         
-        console.log('[ANSWER CHECK] Status', {
+        console.log('[ANSWER CHECK] Status (after wait period)', {
             questionText: currentQuestion.text,
             questionSeq,
+            elapsedTime,
             playersCount: players.length,
             answerStates: answerStates.map(a => ({ 
                 id: a.id, 
                 answerSeq: a.answerSeq, 
-                hasAnswer: a.answer !== undefined 
+                hasAnswer: a.answer !== undefined && a.answer !== null,
+                answerValue: a.answer
             })),
             allSynced
         });
@@ -166,6 +211,9 @@ export const useGameEngine = () => {
 
         // 全員が現在の問題世代で回答済みの場合のみ結果発表へ
         if (checkAllAnswered()) {
+            console.log('[ANSWER CHECK] checkAllAnswered returned true, verifying...');
+            const verifiedStates = getAnswerStates();
+            console.log('[ANSWER CHECK] Verified states:', verifiedStates);
             // 少し遅延させて状態の同期を確実に
             const checkTimeout = setTimeout(() => {
                 // 再度確認
@@ -549,10 +597,30 @@ export const useGameEngine = () => {
 // Registered RPCs
 RPC.register('resetAnswers', async (data: { questionSeq?: number }) => {
     const player = myPlayer();
+    const previousAnswer = player.getState('answer');
+    const previousSeq = player.getState('answerSeq');
+    
+    console.log('[RPC] resetAnswers - before reset', {
+        playerId: player.id,
+        previousAnswer,
+        previousSeq,
+        newQuestionSeq: data?.questionSeq
+    });
+    
     player.setState('answer', undefined);
     // この世代のリセットを受領した印として answerSeq を設定
     if (data?.questionSeq !== undefined) {
         player.setState('answerSeq', data.questionSeq);
     }
-    console.log('[RPC] resetAnswers received', { questionSeq: data?.questionSeq });
+    
+    // リセット後の状態を確認
+    const newAnswer = player.getState('answer');
+    const newSeq = player.getState('answerSeq');
+    console.log('[RPC] resetAnswers - after reset', {
+        playerId: player.id,
+        newAnswer,
+        newSeq,
+        questionSeq: data?.questionSeq,
+        resetSuccessful: newAnswer === undefined && newSeq === data?.questionSeq
+    });
 });
