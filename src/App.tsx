@@ -669,9 +669,10 @@ interface ResultScreenProps {
   isAdmin: boolean;
   isDoubleScore: boolean;
   playSE: (name: any) => void;
+  currentQuestion: Question | null;
 }
 
-const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE }: ResultScreenProps) => {
+const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE, currentQuestion }: ResultScreenProps) => {
   const sortedPlayers = [...players].sort((a, b) => (a.getState('answer') as number) - (b.getState('answer') as number));
   const myself = myPlayer();
 
@@ -711,6 +712,13 @@ const ResultScreen = ({ result, players, onNext, isAdmin, isDoubleScore, playSE 
     >
       <h2>結果発表</h2>
       {isDoubleScore && <div className="double-score-label">★ 倍率2倍ラウンド ★</div>}
+      
+      {currentQuestion && (
+        <div className="result-question-display">
+          <div className="result-question-category">[{currentQuestion.category}]</div>
+          <div className="result-question-text">{currentQuestion.text}</div>
+        </div>
+      )}
 
       <div className="good-line-container">
         <div className="good-line-label">いい線（中央値）</div>
@@ -1514,6 +1522,7 @@ function App() {
           isAdmin={isAdmin}
           isDoubleScore={isDoubleScore}
           playSE={playSE}
+          currentQuestion={currentQuestion}
         />
       )}
       {phase === 'RANKING' && (

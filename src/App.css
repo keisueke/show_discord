@@ -787,6 +787,10 @@ button:disabled {
   border: 2px solid var(--card-border);
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
 }
 
 .candidate-btn:hover {
@@ -796,17 +800,18 @@ button:disabled {
 }
 
 .candidate-category {
-  font-size: 0.85em;
+  font-size: 0.9em;
   color: var(--accent-cyan);
-  margin-bottom: 0.5rem;
   font-weight: 600;
   font-family: var(--font-heading);
+  margin-bottom: 0.3rem;
 }
 
 .candidate-text {
   font-size: 1.2em;
   font-family: var(--font-heading);
   color: var(--text-white);
+  line-height: 1.4;
 }
 
 /* ========================================
@@ -929,6 +934,35 @@ button:disabled {
 /* ========================================
    結果画面
    ======================================== */
+.result-question-display {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem;
+  border: 2px solid var(--card-border);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.result-question-category {
+  font-size: 0.9em;
+  color: var(--accent-cyan);
+  font-weight: 600;
+  font-family: var(--font-heading);
+}
+
+.result-question-text {
+  font-size: 1.3em;
+  font-family: var(--font-heading);
+  color: var(--text-white);
+  line-height: 1.5;
+  font-weight: 600;
+}
+
 .good-line-container {
   background: var(--card-bg);
   padding: 2rem;
