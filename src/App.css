@@ -860,3 +860,59 @@ button:disabled {
     max-height: 150px;
   }
 }
+
+/* 音量調節パネル */
+.volume-control-panel {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.volume-control-panel input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-control-panel input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #646cff;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.volume-control-panel input[type="range"]::-webkit-slider-thumb:hover {
+  background: #535bf2;
+  transform: scale(1.1);
+}
+
+.volume-control-panel input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #646cff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.volume-control-panel input[type="range"]::-moz-range-thumb:hover {
+  background: #535bf2;
+  transform: scale(1.1);
+}
+
+.volume-btn {
+  transition: all 0.2s ease;
+}
+
+.volume-btn:hover {
+  background: rgba(0, 0, 0, 0.7) !important;
+  transform: translateY(-1px);
+}

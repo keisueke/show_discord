@@ -1068,6 +1068,8 @@ function App() {
   
   // デバッグモードの状態管理（フックは条件分岐の前に配置）
   const [debugMode, setDebugMode] = useState(false);
+  const [showVolumeControl, setShowVolumeControl] = useState(false);
+  const volumeControlRef = useRef<HTMLDivElement>(null);
   
   // ロビー画面の定期更新用のカウンター（画像・名前の反映を確実にするため）
   const [lobbyUpdateCounter, setLobbyUpdateCounter] = useState(0);
@@ -1080,7 +1082,7 @@ function App() {
     setLobbyUpdateCounter(prev => prev + 1);
   };
   
-  const { playSE, playBGM, toggleMute, muted } = useSounds();
+  const { playSE, playBGM, toggleMute, muted, bgmVolume, setBgmVolume } = useSounds();
   addDebugLog('[APP] useSounds initialized');
 
   // Use new game engine
@@ -1240,6 +1242,23 @@ function App() {
     }
   };
 
+  // 画面外クリックで音量調節パネルを閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (volumeControlRef.current && !volumeControlRef.current.contains(event.target as Node)) {
+        setShowVolumeControl(false);
+      }
+    };
+
+    if (showVolumeControl) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showVolumeControl]);
+
   return (
     <div className="app-container">
       <div style={{ position: 'fixed', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: '10px' }}>
@@ -1272,6 +1291,134 @@ function App() {
         >
           {muted ? '🔇' : '🔊'}
         </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            className="volume-btn"
+            onClick={() => setShowVolumeControl(!showVolumeControl)}
+            style={{ 
+              background: 'rgba(0,0,0,0.5)', 
+              padding: '5px 10px', 
+              color: 'white', 
+              border: '1px solid #555', 
+              borderRadius: '4px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+            title="BGM音量調節"
+          >
+            🎵 {Math.round(bgmVolume * 100)}%
+          </button>
+          {showVolumeControl && (
+            <div 
+              ref={volumeControlRef}
+              className="volume-control-panel"
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '5px',
+                background: 'rgba(0, 0, 0, 0.9)',
+                padding: '15px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                minWidth: '200px',
+                zIndex: 1001
+              }}
+            >
+              <div style={{ marginBottom: '10px', color: 'white', fontSize: '14px', fontWeight: 'bold' }}>
+                BGM音量
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={bgmVolume * 100}
+                onChange={(e) => setBgmVolume(parseInt(e.target.value) / 100)}
+                style={{
+                  width: '100%',
+                  marginBottom: '10px'
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <button
+                  onClick={() => setBgmVolume(0)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    background: bgmVolume === 0 ? 'rgba(255, 100, 100, 0.5)' : 'rgba(255, 255, 255, 0.1)',
+                    color: 'white',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  0%
+                </button>
+                <button
+                  onClick={() => setBgmVolume(0.25)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    background: Math.abs(bgmVolume - 0.25) < 0.01 ? 'rgba(100, 150, 255, 0.5)' : 'rgba(255, 255, 255, 0.1)',
+                    color: 'white',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  25%
+                </button>
+                <button
+                  onClick={() => setBgmVolume(0.5)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    background: Math.abs(bgmVolume - 0.5) < 0.01 ? 'rgba(100, 150, 255, 0.5)' : 'rgba(255, 255, 255, 0.1)',
+                    color: 'white',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  50%
+                </button>
+                <button
+                  onClick={() => setBgmVolume(0.75)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    background: Math.abs(bgmVolume - 0.75) < 0.01 ? 'rgba(100, 150, 255, 0.5)' : 'rgba(255, 255, 255, 0.1)',
+                    color: 'white',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  75%
+                </button>
+                <button
+                  onClick={() => setBgmVolume(1.0)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    background: Math.abs(bgmVolume - 1.0) < 0.01 ? 'rgba(100, 150, 255, 0.5)' : 'rgba(255, 255, 255, 0.1)',
+                    color: 'white',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  100%
+                </button>
+              </div>
+              <div style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '12px', textAlign: 'center' }}>
+                現在: {Math.round(bgmVolume * 100)}%
+              </div>
+            </div>
+          )}
+        </div>
         <button
           className="debug-btn"
           onClick={handleToggleDebug}

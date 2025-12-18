@@ -34,8 +34,29 @@ const SOUND_PATHS: Record<SoundName, string> = {
     se_countdown: './sounds/se_countdown.mp3',
 };
 
+// BGM音量のデフォルト値とlocalStorageキー
+const DEFAULT_BGM_VOLUME = 0.4;
+const BGM_VOLUME_STORAGE_KEY = 'bgm_volume';
+
+// localStorageからBGM音量を読み込む
+const loadBgmVolume = (): number => {
+    try {
+        const saved = localStorage.getItem(BGM_VOLUME_STORAGE_KEY);
+        if (saved !== null) {
+            const volume = parseFloat(saved);
+            if (!isNaN(volume) && volume >= 0 && volume <= 1) {
+                return volume;
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to load BGM volume from localStorage', e);
+    }
+    return DEFAULT_BGM_VOLUME;
+};
+
 export const useSounds = () => {
     const [muted, setMuted] = useState(false);
+    const [bgmVolume, setBgmVolumeState] = useState<number>(loadBgmVolume);
     const bgmRef = useRef<Howl | null>(null);
     const currentBgmName = useRef<SoundName | null>(null);
     const lastLobbyBgmIndex = useRef<number>(-1); // 前回再生したロビーBGMのインデックス
@@ -44,6 +65,31 @@ export const useSounds = () => {
     useEffect(() => {
         Howler.mute(muted);
     }, [muted]);
+
+    // BGM音量を変更する関数
+    const setBgmVolume = useCallback((volume: number) => {
+        const clampedVolume = Math.max(0, Math.min(1, volume));
+        setBgmVolumeState(clampedVolume);
+        
+        // localStorageに保存
+        try {
+            localStorage.setItem(BGM_VOLUME_STORAGE_KEY, clampedVolume.toString());
+        } catch (e) {
+            console.warn('Failed to save BGM volume to localStorage', e);
+        }
+        
+        // 現在再生中のBGMの音量も更新
+        if (bgmRef.current) {
+            bgmRef.current.volume(clampedVolume);
+        }
+    }, []);
+
+    // BGM音量が変更されたときに、再生中のBGMの音量も更新
+    useEffect(() => {
+        if (bgmRef.current) {
+            bgmRef.current.volume(bgmVolume);
+        }
+    }, [bgmVolume]);
 
     const playSE = useCallback((name: SoundName) => {
         const sound = new Howl({
@@ -105,22 +151,22 @@ export const useSounds = () => {
         });
 
         newBgm.play();
-        newBgm.fade(0, 0.4, 1000); // Fade in to 0.4
+        newBgm.fade(0, bgmVolume, 1000); // Fade in to current BGM volume
 
         bgmRef.current = newBgm;
         currentBgmName.current = name;
-    }, []);
+    }, [bgmVolume]);
 
     const stopBGM = useCallback(() => {
         if (bgmRef.current) {
-            bgmRef.current.fade(0.4, 0, 1000);
+            bgmRef.current.fade(bgmVolume, 0, 1000);
             setTimeout(() => {
                 bgmRef.current?.stop();
                 bgmRef.current = null;
                 currentBgmName.current = null;
             }, 1000);
         }
-    }, []);
+    }, [bgmVolume]);
 
     const toggleMute = useCallback(() => {
         setMuted(prev => !prev);
@@ -131,6 +177,8 @@ export const useSounds = () => {
         playBGM,
         stopBGM,
         toggleMute,
-        muted
+        muted,
+        bgmVolume,
+        setBgmVolume
     };
 };
