@@ -1190,6 +1190,23 @@ function App() {
     addDebugLog(`[APP] DOM check - lobby exists: ${!!document.querySelector('.lobby')}`);
   }, [phase, shouldRenderLobby, myself]);
 
+  // 画面外クリックで音量調節パネルを閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (volumeControlRef.current && !volumeControlRef.current.contains(event.target as Node)) {
+        setShowVolumeControl(false);
+      }
+    };
+
+    if (showVolumeControl) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showVolumeControl]);
+
   // myselfがnullの場合はローディング表示（フックの後に配置）
   if (!myself) {
     addDebugLog(`[APP] myself is null, showing loading... - players: ${players.length}, phase: ${phase}`);
@@ -1241,23 +1258,6 @@ function App() {
       window.toggleDebugLog();
     }
   };
-
-  // 画面外クリックで音量調節パネルを閉じる
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (volumeControlRef.current && !volumeControlRef.current.contains(event.target as Node)) {
-        setShowVolumeControl(false);
-      }
-    };
-
-    if (showVolumeControl) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showVolumeControl]);
 
   return (
     <div className="app-container">
