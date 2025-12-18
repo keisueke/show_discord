@@ -35,7 +35,7 @@ const SOUND_PATHS: Record<SoundName, string> = {
 };
 
 // BGM音量のデフォルト値とlocalStorageキー
-const DEFAULT_BGM_VOLUME = 0.4;
+const DEFAULT_BGM_VOLUME = 0.5; // 50%
 const BGM_VOLUME_STORAGE_KEY = 'bgm_volume';
 
 // localStorageからBGM音量を読み込む
