@@ -306,6 +306,32 @@ const Lobby = ({ onStart, players, myself, adminId, settings, onUpdateSettings, 
               </ul>
             </div>
 
+            <div className="howto-section example-section">
+              <h4>📝 例題</h4>
+              <div className="example-box">
+                <p className="example-question">Q: 日本で一番長い川の長さは何km？</p>
+                <div className="example-answers">
+                  <p>5人が以下のように回答しました：</p>
+                  <div className="answer-chips">
+                    <span className="answer-chip loser-min">150</span>
+                    <span className="answer-chip">280</span>
+                    <span className="answer-chip winner">350</span>
+                    <span className="answer-chip">420</span>
+                    <span className="answer-chip loser-max">600</span>
+                  </div>
+                </div>
+                <div className="example-result">
+                  <p>📊 結果：</p>
+                  <ul>
+                    <li>真ん中の数字 = <strong>350</strong> → 正解！（+100点）</li>
+                    <li>一番大きい <strong>600</strong> → -50点</li>
+                    <li>一番小さい <strong>150</strong> → -50点</li>
+                  </ul>
+                  <p className="example-note">※ 実際の信濃川の長さは約367kmですが、このゲームでは事実は関係ありません！</p>
+                </div>
+              </div>
+            </div>
+
             <div className="howto-section">
               <h4>⭐ 得点の計算</h4>
               <ul>
